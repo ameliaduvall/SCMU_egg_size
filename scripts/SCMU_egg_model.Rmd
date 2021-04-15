@@ -17,7 +17,7 @@ library(lubridate)
 library(viridis)
 library(lme4)
 library(faraway)
-library(psycho)
+
 ```
 
 This is `r paste0("v.", (Sys.Date()))`
@@ -43,7 +43,8 @@ This model includes observer and plot as random effects, but does not include an
 ```{r null_model}
 nm <- lmer(Size ~ 1 + (1 | Observer) + (1 | Plot), data = df)
 sumary(nm)
-
+summary(nm)
+coef(nm)
 ## quick model diagnostics
 
 ## extract predicted values and plot
