@@ -17,6 +17,7 @@ library(lubridate)
 library(viridis)
 library(lme4)
 library(faraway)
+library(psycho)
 ```
 
 This is `r paste0("v.", (Sys.Date()))`
@@ -34,7 +35,7 @@ covars <- read_csv(here("data", "covariates", "covars.csv"))
 ## join covariate data with egg data by year
 df <- left_join(egg, covars, by = "Year") %>%
   filter(TrueOrder == TRUE) %>% # egg order known only
-  select(Year, Observer, Plot, Size, ANCHL, BEUTI, NPGO, ONI, PDO, SST)
+  select(Year, Observer, Plot, Size, EggOrder, ANCHL, BEUTI, NPGO, ONI, PDO, SST)
 ```
 
 # Null Intercept-Only Model
@@ -74,6 +75,18 @@ plot(yh, resids, las = 1, pch = 16,
      main = "Residuals vs fitted")
 abline(h=0, lty = "dashed")
 ```
+
+# Egg Order-only Model
+This model includes observer and plot as random effects and egg order as a fixed effect. 
+```{r null_model}
+order.mod <- lmer(Size ~ EggOrder + (1 | Observer) + (1 | Plot), data = df)
+sumary(order.mod)
+
+coef(summary(order.mod))
+
+VarCorr(order.mod)
+```
+
 
 # Fit Candidate Models
 ```{r mods}
