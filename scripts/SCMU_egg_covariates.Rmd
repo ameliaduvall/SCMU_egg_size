@@ -25,6 +25,8 @@ This is `r paste0("v.", (Sys.Date()))`
 # Introduction
 This document details steps taken to compile covariate data for a linear mixed model on Scripps's Murrelet (*Synthliboramphus scrippsi*) egg size at Santa Barbara Island within Channel Islands National Park from 2009-2017.
 
+We decided to pull relevant covariates from January-June only because murrelets begin to arrive at the colony in January and clutch initiation extends from March to June (Murray et al. 1985). 
+
 # Potential Covariates
 
 ## Local oceanographic conditions
@@ -82,8 +84,19 @@ sst_NAs <- SSTraw %>%
 # plot(wx2012$MM, wx2012$WTMP) # data missing in spring/summer
 
 ## create mean annual sst
-SST <- SSTraw %>%
+SST_full <- SSTraw %>%
   mutate(WTMP = as.numeric(WTMP)) %>%
+  group_by(Year) %>%
+  summarise(SST = mean(WTMP, na.rm = TRUE)) %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  arrange(Year) %>%
+  as.tibble()
+
+## create mean sst for Jan-May
+SST <- SSTraw %>%
+  mutate(WTMP = as.numeric(WTMP),
+         MM = as.numeric(MM)) %>%
+  filter(MM == 1:6) %>%
   group_by(Year) %>%
   summarise(SST = mean(WTMP, na.rm = TRUE)) %>%
   filter(Year >= 2009 & Year <= 2017) %>%
@@ -159,11 +172,26 @@ Time span: 1900-01-01T00:00:00Z - 2020-04-01T00:00:00Z\
 ```{r PDO}
 PDOraw <- read.csv(here("data", "covariates", "cciea_OC_PDO_712b_5843_9069.csv"))
 
-PDO <- PDOraw %>%
+PDO_full <- PDOraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
   mutate(Year = year(time)) %>%
   mutate(pdo = as.numeric(PDO)) %>%
+  group_by(Year) %>%
+  summarise(PDO = mean(pdo, na.rm = TRUE)) %>%
+  dplyr::select(Year, PDO) %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  arrange(Year) %>%
+  as.tibble()
+
+## for January-June only
+PDO <- PDOraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time),
+         Month = month(time)) %>%
+  mutate(pdo = as.numeric(PDO)) %>%
+  filter(Month == 1:6) %>%
   group_by(Year) %>%
   summarise(PDO = mean(pdo, na.rm = TRUE)) %>%
   dplyr::select(Year, PDO) %>%
@@ -179,11 +207,26 @@ Time span: 1950-01-01T00:00:00Z - 2020-03-01T00:00:00Z\
 ```{r ONI}
 ONIraw <- read.csv(here("data", "covariates", "cciea_OC_ONI_712b_5843_9069.csv"))
 
-ONI <- ONIraw %>%
+ONI_full <- ONIraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
   mutate(Year = year(time)) %>%
   mutate(oni = as.numeric(ONI)) %>%
+  group_by(Year) %>%
+  summarise(ONI = mean(oni, na.rm = TRUE)) %>%
+  dplyr::select(Year, ONI) %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  arrange(Year) %>%
+  as.tibble()
+
+## for January-June only
+ONI <- ONIraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time),
+         Month = month(time)) %>%
+  mutate(oni = as.numeric(ONI)) %>%
+  filter(Month == 1:6) %>%
   group_by(Year) %>%
   summarise(ONI = mean(oni, na.rm = TRUE)) %>%
   dplyr::select(Year, ONI) %>%
@@ -199,11 +242,26 @@ Time span: 1950-01-01T00:00:00Z - 2019-07-01T00:00:00Z\
 ```{r NPGO}
 NPGOraw <- read.csv(here("data", "covariates", "cciea_OC_NPGO_712b_5843_9069.csv"))
 
-NPGO <- NPGOraw %>%
+NPGO_full <- NPGOraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
   mutate(Year = year(time)) %>%
   mutate(npgo = as.numeric(NPGO)) %>%
+  group_by(Year) %>%
+  summarise(NPGO = mean(npgo, na.rm = TRUE)) %>%
+  dplyr::select(Year, NPGO) %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  arrange(Year) %>%
+  as.tibble()
+
+## for January-June only
+NPGO <- NPGOraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time),
+         Month = month(time)) %>%
+  mutate(npgo = as.numeric(NPGO)) %>%
+  filter(Month == 1:6) %>%
   group_by(Year) %>%
   summarise(NPGO = mean(npgo, na.rm = TRUE)) %>%
   dplyr::select(Year, NPGO) %>%
@@ -263,11 +321,26 @@ Note: Check Latitude (39)
 ```{r BEUTI}
 BEUTIraw <- read.csv(here("data", "covariates", "cciea_OC_BEUTI_784c_ef9f_af6f.csv"))
 
-BEUTI <- BEUTIraw %>%
+BEUTI_full <- BEUTIraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
   mutate(Year = year(time)) %>%
   mutate(beuti = as.numeric(beuti)) %>%
+  group_by(Year) %>%
+  summarise(BEUTI = mean(beuti, na.rm = TRUE)) %>%
+  dplyr::select(Year, BEUTI) %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  arrange(Year) %>%
+  as.tibble()
+
+## for January-June only
+BEUTI <- BEUTIraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time),
+         Month = month(time)) %>%
+  mutate(beuti = as.numeric(beuti)) %>%
+  filter(Month == 1:6) %>%
   group_by(Year) %>%
   summarise(BEUTI = mean(beuti, na.rm = TRUE)) %>%
   dplyr::select(Year, BEUTI) %>%
@@ -326,11 +399,16 @@ corrplot(cor$r, type = "lower", order = "original", p.mat = cor$P,
 ```
 Positive correlations are displayed in blue and negative correlations in red color. Color intensity and the size of the circle are proportional to the correlation coefficients.  
 
-We selected +/- 0.75 as our cutoff for correlation (Note: Check with Sarah). The following covariates should not be in the same model:
+We selected +/- 0.65 as our cutoff for correlation (Note: Check with Sarah). The following covariates should not be in the same model:
 1. NPGO and SST
 2. NPGO and PDO
-3. ANCHL and PDO
-4. PDO and SST
+3. BEUTI and PDO
+4. ANCHL and SST
+5. ONI and SST
+6. ANCHL and ONI
+7. ANCHL and PDO
+8. PDO and SST
+9. ONI and PDO
 
 Note: Why aren't all of the correlations shown in the plot?  
 
@@ -349,14 +427,19 @@ full_set <- expand.grid(predictors) # 64 combinations
 ## select models with correlated predictors
 ii <- which(full_set$SST + full_set$NPGO == 2 |
               full_set$NPGO + full_set$PDO == 2 |
+              full_set$BEUTI + full_set$PDO == 2 |
+              full_set$ANCHL + full_set$SST == 2 |
+              full_set$ONI + full_set$SST == 2 |
+              full_set$ANCHL + full_set$ONI == 2 |
               full_set$ANCHL + full_set$PDO == 2 |
-              full_set$SST + full_set$PDO == 2) # 36 models
+              full_set$PDO + full_set$SST == 2 |
+              full_set$ONI + full_set$PDO == 2) # 49 models
 
 ## create reduced set of models and convert to a matrix for easier indexing
-use_set <- as.matrix(full_set[-ii,]) # 28 models
+use_set <- as.matrix(full_set[-ii,]) # 15 models
 
 ## number of models in set
-(n_mods <- nrow(use_set)) # 28 models out of potential 64
+(n_mods <- nrow(use_set)) # 15 models out of potential 64
 ```
 
 # Final Covariates Plot
