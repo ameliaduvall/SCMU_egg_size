@@ -44,6 +44,9 @@ This model includes observer and plot as random effects, but does not include an
 nm <- lmer(Size ~ 1 + (1 | Observer) + (1 | Plot), data = df)
 sumary
 coef.nm <- coef(nm)
+ranef(nm)
+# mean(ranef(nm)$Observer) # should be close to 0
+
 
 ## output table
 sjPlot::tab_model(nm)
@@ -255,4 +258,63 @@ g2 <- resids[yh > median(yh)]
 ## Levene's test
 var.test(g1, g2)
 # We would reject the null hypothesis that the variances are equal. 
+```
+```{r gof}
+## Goodness of fit
+## Pearson's X^2 statistic
+X2 <- sum((success - yh)^2/yh)
+df <- nn-6 # 4 fixed effects, 2 random effects
+
+## likelihood ratio test
+pchisq(X2, df = 1323, lower.tail = FALSE)
+# large p-value, cannot reject H_0
+
+## check for overdispersion 
+c_hat <- deviance(bm)/df
+# close to 1
+
+## Likelihood ratio tests  
+## run model with plot RE only
+bm_plot <- glmer(Success ~ Type + (1 | Plot), data = SCMU, family = binomial)
+## run model with year RE only
+bm_yr <- glmer(Success ~ Type + (1 | Year), data = SCMU, family = binomial)
+## run model with both REs (same as top model)
+
+## conduct an LRT to see if the variance of the Plot RE is contributing useful info
+test_1 <- 2 * (logLik(bm) - logLik(bm_yr))
+pchisq(as.numeric(test_1), df = 1, lower.tail = FALSE)
+# There is support for inclusion of Plot as an RE
+
+## check for contribution of Year RE
+test_2 <- 2 * (logLik(bm) - logLik(bm_plot))
+pchisq(as.numeric(test_2), df = 1, lower.tail = FALSE)
+# There is support for inclusion of Year as an RE
+
+## Bootstrapping  to test for evidence against including multiple random effects in the same model
+## set random seed 
+set.seed(514)
+
+## fit null model with no RE's 
+nbm <- lm(Success ~ Type, data = SCMU)
+
+## calculate likelihood ratio (difference in log-likelihood)
+lambda <- 2 * (logLik(bm) - logLik(nbm))
+
+## number of bootstrapped samples
+nb <- 1000
+
+## empty vector for storing LRT statistics
+LRT_boot <- rep(NA, nb)
+
+## bootstrapping
+for(i in 1:nb) { # repeat nb times
+  sim_data <- unlist(simulate(nbm)) # simulate data from null model
+  m_null <- lm(sim_data ~ Type, data = SCMU) # fit null model to sim data 
+  m_alt <- lmer(sim_data ~ Type + (1 | Year) + (1 | Plot), data = SCMU, REML = FALSE) # fit RE model
+  LRT_boot[i] <- as.numeric(2*(logLik(m_alt) - logLik(m_null))) # calculate likelihood ratio 
+}
+
+## calculate approximate p-value
+mean(LRT_boot > lambda)
+# none of the bootstrapped samples had a test statistic larger than the original value of lambda
 ```

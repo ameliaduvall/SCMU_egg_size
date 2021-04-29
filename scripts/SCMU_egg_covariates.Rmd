@@ -132,7 +132,8 @@ CalCOFI lines 76.7 - 93.3; stations 28.0 - 120/0
 
 Note: No data available for 2017 (check why)  
 ```{r anchovyl}
-ANCHLraw  <- read.csv(here("data", "covariates", "cciea_EI_FBS_a29e_1fd0_409d.csv"), na.strings = "NaN")
+# ANCHLraw  <- read.csv(here("data", "covariates", "cciea_EI_FBS_a29e_1fd0_409d.csv"), na.strings = "NaN")
+ANCHLraw  <- read.csv(here("data", "covariates", "cciea_EI_FBS_2020_a29e_1fd0_409d.csv"), na.strings = "NaN")
   
 ANCHL <- ANCHLraw %>%
   slice(-1) %>%
