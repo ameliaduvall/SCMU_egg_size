@@ -260,20 +260,25 @@ NPGO_full <- NPGOraw %>%
   arrange(Year) %>%
   as.tibble()
 
-## for January-June only
+## for December-March only
 NPGO <- NPGOraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
   mutate(Year = year(time),
          Month = month(time)) %>%
   mutate(npgo = as.numeric(NPGO)) %>%
-  filter(Month == 1:6) %>%
-  group_by(Year) %>%
+  filter(Month == 12 | Month == 1 | Month == 2 | Month == 3) %>%
+  filter(Year >= 2008 & Year <= 2017)%>%
+  slice(-c(1:3)) %>%
+  slice(-37) %>%
+  mutate(Period = c(rep("A", 4), rep("B", 4), rep("C", 4), rep("D", 4), 
+                     rep("E", 4), rep("F", 4), rep("G", 4), rep("H", 4), rep("I", 4))) %>%
+  group_by(Period) %>%
   summarise(NPGO = mean(npgo, na.rm = TRUE)) %>%
+  mutate(Year = 2009:2017) %>%
   dplyr::select(Year, NPGO) %>%
-  filter(Year >= 2009 & Year <= 2017) %>%
   arrange(Year) %>%
-  as.tibble()
+  as_tibble()
 ```
 
 ### Coastal Upwelling Transport Index (39N)
@@ -473,5 +478,5 @@ finalcovars <- covars %>%
   mutate(Year = 2009:2017) %>%
   select(Year, everything())
 
-# write.csv(x = finalcovars, file = here("data", "covariates", "covars.csv")) 
+#write.csv(x = finalcovars, file = here("data", "covariates", "covars.csv")) 
 ```
