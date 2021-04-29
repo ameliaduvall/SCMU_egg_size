@@ -104,6 +104,9 @@ SST <- SSTraw %>%
   as.tibble()
 ```
 
+NOAA buoy station 46251: https://www.ndbc.noaa.gov/station_page.php?station=46251
+Try pulling SST here instead to avoid gaps?
+
 ## Forage fish 
 Data from NOAA IEA 
 https://www.integratedecosystemassessment.noaa.gov/regions/california-current/cc-indicator-ecological-integrity  
@@ -240,6 +243,8 @@ ONI <- ONIraw %>%
 Summary: http://www.o3d.org/npgo/npgo.php The NPGO is calculated from an Empirical Orthogonal Function analysis of sea-surface height in the Northeast Pacific. The NPGO is the second dominant mode.\
 Institution: Georgia Institute of Technology (GT)\
 Time span: 1950-01-01T00:00:00Z - 2019-07-01T00:00:00Z\
+This article also explains NPGO well: http://www.o3d.org/npgo/
+See also this paper: https://agupubs.onlinelibrary.wiley.com/doi/pdf/10.1029/2011GL049966
 ```{r NPGO}
 NPGOraw <- read.csv(here("data", "covariates", "cciea_OC_NPGO_712b_5843_9069.csv"))
 

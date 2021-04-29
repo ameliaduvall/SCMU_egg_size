@@ -22,10 +22,16 @@ library(sjPlot)
 
 This is `r paste0("v.", (Sys.Date()))`
 
+#TODO
+- Look into another source for SST temperature due to 2011 gaps in buoy data
+- Shift months for NPGO? Dec-March see Chenillat et al. 2012
+- Calculate confidence intervals
+- Prediction…. In a year with good anchovies/bad anchovies, etc
+- Diagnostics: ACF plot 
+- Likelihood ratio tests for random effects
+
 # Introduction
 This document details steps taken to model Scripps's Murrelet (*Synthliboramphus scrippsi*) egg size at Santa Barbara Island within Channel Islands National Park from 2009-2017.  
-
-Note: There are only 7 records for 2009. Should we include this year?  
 
 # Load and format data 
 ```{r data}
@@ -41,14 +47,21 @@ df <- left_join(egg, covars, by = "Year") %>%
 # Null Intercept-Only Model
 This model includes observer and plot as random effects, but does not include any covariates.
 ```{r null_model}
+## run model
 nm <- lmer(Size ~ 1 + (1 | Observer) + (1 | Plot), data = df)
-sumary
-coef.nm <- coef(nm)
-ranef(nm)
-# mean(ranef(nm)$Observer) # should be close to 0
 
+## look at model output and estimates
+sumary(nm)
+coef(nm) # these are the coefficients
+ranef(nm) # these are the random effects
+## you can store the model results to objects
+obs.ranef <- ranef(nm)$Observer 
+plot.ranef <- ranef(nm)$Plot
+## the mean of these values should be close to 0
+mean(obs.ranef[[1]])
+mean(plot.ranef[[1]])
 
-## output table
+## here's another way to look at the model results
 sjPlot::tab_model(nm)
 
 ## quick model diagnostics
@@ -56,19 +69,21 @@ sjPlot::tab_model(nm)
 preds <- predict(nm) 
 ggplot() + 
   geom_histogram(mapping = aes(preds)) + 
-  theme_minimal()
+  theme_minimal() 
+# we want these to look normally distributed
 
 ## extract residuals and plot
 resids <- residuals(nm) 
 ggplot() + 
   geom_histogram(mapping = aes(resids)) + 
   theme_minimal()
+# we want these to look normally distributed
 
 ## Q-Q Plots
-## set plot area
-par(mai = c(0.9, 0.9, 0.6, 0.1),
-    omi = c(0, 0, 0, 0),
-    mfrow = c(1,2), cex.lab = 1.2)
+# ## set plot area
+# par(mai = c(0.9, 0.9, 0.6, 0.1),
+#     omi = c(0, 0, 0, 0),
+#     mfrow = c(1,2), cex.lab = 1.2)
 
 # qq resids
 qqnorm(resids, main = "QQ plot (residuals)", las = 1, pch = 16)
@@ -85,20 +100,18 @@ abline(h=0, lty = "dashed")
 # Egg Order-only Model
 This model includes observer and plot as random effects and egg order as a fixed effect. 
 ```{r null_model}
+## run the model
 order.mod <- lmer(Size ~ EggOrder + (1 | Observer) + (1 | Plot), data = df)
+
+## look at model summary and estimates
 sumary(order.mod)
 coef(summary(order.mod))
 VarCorr(order.mod)
+ranef(order.mod)
 
-## output table
+## another way to look at model output 
 sjPlot::tab_model(order.mod)
-
-## plotting
-sjPlot::plot_model(order.mod, 
-                   show.values = TRUE, show.p = TRUE) +
-  theme_minimal()
 ```
-
 
 # Fit Candidate Models
 ```{r mods}
@@ -181,23 +194,27 @@ allm <- as.data.frame(delta_res) %>%
 bestm <- allm %>%
   filter(deltaAIC <= 2) 
 ```
-
+There are two competitive models. 
 
 # Top Model
+Here we look at the top competitive model, but there is a competiting top model also. 
 ```{r bestmod}
+##run model
 bm <- lmer(Size ~ EggOrder + ANCHL + BEUTI + NPGO + (1 | Observer) + (1 | Plot), data = df)
+## look at model output and estimates
 summary(bm)
-sumary(bm)
-mm <- model.matrix(bm)
+coef(bm)
+ranef(bm)
+model.matrix(bm)
 
 ## output table
 sjPlot::tab_model(bm)
+```
 
-## plotting
-sjPlot::plot_model(bm, 
-                   show.values = TRUE, show.p = TRUE) +
-  theme_minimal()
+# Model Diagnostics
 
+### Residuals/Fitted Plots
+```{r diagnostics}
 ## extract predicted values and plot
 preds <- predict(bm)
 ggplot() + 
@@ -216,17 +233,14 @@ ranef_obs <- ranef(bm)$Observer
 ranef_pl <- ranef(bm)$Plot
 
 ## estimated mean egg size
-eta <- predict(bm)
-mean(eta) # is this right?
-```
+# eta <- predict(bm)
+# mean(eta) # is this right?
 
-# Model Diagnostics
-```{r diagnostics}
 ## Q-Q Plots
-## set plot area
-par(mai = c(0.9, 0.9, 0.6, 0.1),
-    omi = c(0, 0, 0, 0),
-    mfrow = c(1,2), cex.lab = 1.2)
+# ## set plot area
+# par(mai = c(0.9, 0.9, 0.6, 0.1),
+#     omi = c(0, 0, 0, 0),
+#     mfrow = c(1,2), cex.lab = 1.2)
 
 # qq resids
 qqnorm(resids, main = "QQ plot (residuals)", las = 1, pch = 16)
@@ -248,7 +262,7 @@ plot(yh, resids, las = 1, pch = 16,
 abline(h=0, lty = "dashed")
 ```
 
-
+### Levene's test
 ```{r lev}
 ## Levene's test
 ## split residuals into 2 groups
@@ -257,8 +271,24 @@ g2 <- resids[yh > median(yh)]
 
 ## Levene's test
 var.test(g1, g2)
-# We would reject the null hypothesis that the variances are equal. 
+# There is no justification to reject the null hypothesis that the residuals are equal. F is close to 1 and it is within the 95% confidence interval. 
 ```
+
+### Autocorrelation
+```{r acf}
+# calculate the ACF for lags between 1 and 20 
+autocorrelation <- acf(resids, lag.max= 10, plot = FALSE)
+
+# Plot figure
+plot(autocorrelation,
+     main="Autocorrelation",
+     xlab="Lag Parameter",
+     ylab="ACF")
+```
+
+
+### Goodness of Fit
+
 ```{r gof}
 ## Goodness of fit
 ## Pearson's X^2 statistic
@@ -272,7 +302,9 @@ pchisq(X2, df = 1323, lower.tail = FALSE)
 ## check for overdispersion 
 c_hat <- deviance(bm)/df
 # close to 1
+```
 
+```{r likelihoodratio}
 ## Likelihood ratio tests  
 ## run model with plot RE only
 bm_plot <- glmer(Success ~ Type + (1 | Plot), data = SCMU, family = binomial)
