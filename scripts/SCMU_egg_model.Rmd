@@ -25,6 +25,7 @@ This is `r paste0("v.", (Sys.Date()))`
 #TODO
 - Look into another source for SST temperature due to 2011 gaps in buoy data
 - Shift months for NPGO? Dec-March see Chenillat et al. 2012
+- Check covariate correlations with new NPGO values
 - Calculate confidence intervals
 - Prediction…. In a year with good anchovies/bad anchovies, etc
 - Diagnostics: ACF plot 
@@ -48,7 +49,11 @@ df2 <- left_join(egg, covars, by = "Year") %>%
   filter(TrueOrder == TRUE) %>% # egg order known only
   select(Year, Observer, Plot, Size, EggOrder, ANCHL, BEUTI, NPGO, ONI, PDO)
 
-
+## join covariate data with egg data by year without 2011 data
+df3 <- left_join(egg, covars, by = "Year") %>%
+  filter(TrueOrder == TRUE) %>% # egg order known only
+  select(Year, Observer, Plot, Size, EggOrder, ANCHL, BEUTI, NPGO, ONI, PDO, SST) %>%
+  filter(Year != 2011)
 ```
 
 # Null Intercept-Only Model
@@ -201,8 +206,10 @@ allm <- as.data.frame(delta_res) %>%
 bestm <- allm %>%
   filter(deltaAIC <= 2) 
 ```
+There are two competitive models. 
+
 # Fit Candidate Models without SST
-```{r mods}
+```{r mods2}
 ## create data frame specifying predictors to include
 predictors <- as.data.frame(matrix(c(FALSE, TRUE), 2, 6)) # 6 potential predictors (includes EggOrder)
 
@@ -280,8 +287,92 @@ bestm <- allm %>%
 ```
 There are two competitive models. 
 
+# Fit Candidate Models without 2011 data 
+This is the year with gappy SST. We fit the models without 2011 data so that we could include SST as a predictor and see if it made any of the top models. 
+```{r mods3}
+## create data frame specifying predictors to include
+predictors <- as.data.frame(matrix(c(FALSE, TRUE), 2, 7)) # 7 potential predictors (includes EggOrder)
+
+## add column names
+cov_names <- colnames(predictors) <- colnames(df3[,5:11])
+
+## create set of all possible combinations
+full_set <- expand.grid(predictors) # 128 combinations
+
+## select models with correlated predictors
+ii <- which(full_set$SST + full_set$NPGO == 2 |
+              full_set$NPGO + full_set$PDO == 2 |
+              full_set$BEUTI + full_set$PDO == 2 |
+              full_set$ANCHL + full_set$SST == 2 |
+              full_set$ONI + full_set$SST == 2 |
+              full_set$ANCHL + full_set$ONI == 2 |
+              full_set$ANCHL + full_set$PDO == 2 |
+              full_set$PDO + full_set$SST == 2 |
+              full_set$ONI + full_set$PDO == 2) # 98 models
+
+## create reduced set of models and convert to a matrix for easier indexing
+use_set <- as.matrix(full_set[-ii,]) # 30 models
+
+## number of models in set
+(n_mods <- nrow(use_set)) # 30 models out of potential 128
+
+## create empty matrix for storing results
+mod_res <- matrix(NA, n_mods, 2)
+colnames(mod_res) <- c("AIC", "BIC")
+
+## fit models and store AIC & BIC
+for(i in 1:n_mods) {
+  if(i == 1) {
+    fmla <- "Size ~ 1 + (1 | Observer) + (1 | Plot)"
+  } else {
+    fmla <- paste("Size ~ (1 | Observer) + (1 | Plot) +", paste(cov_names[use_set[i,]], collapse = " + "))
+  }
+  mod_fit <- lmer(as.formula(fmla), data = df3)
+  mod_res[i,"AIC"] <- AIC(mod_fit)
+  mod_res[i,"BIC"] <- BIC(mod_fit) 
+} #isSingular error
+
+## create empty matrix for storing results
+delta_res <- matrix(NA, n_mods, 2)
+colnames(delta_res) <- c("deltaAIC", "deltaBIC")
+
+## convert IC to deltaIC
+delta_res[,"deltaAIC"] <- mod_res[,"AIC"] - min(mod_res[,"AIC"])
+delta_res[,"deltaBIC"] <- mod_res[,"BIC"] - min(mod_res[,"BIC"])
+(delta_res <- round(delta_res, 2)) # round results
+
+## create df with mod results
+mp <- as.data.frame(use_set)
+
+for (i in 1:length(mp)) {
+   mp[[i]] <- str_replace(mp[[i]], "TRUE", colnames(mp)[i])
+}
+
+for (i in 1:length(mp)) {
+   mp[[i]] <- str_replace(mp[[i]], "FALSE", " ")
+}
+
+mpfe <- mp %>%
+  mutate(FEs = paste(EggOrder, ANCHL, BEUTI, NPGO, ONI, PDO, SST, sep = " "))
+
+usmr <- mpfe %>%
+  mutate(k = as.vector(rowSums(use_set) + 2)) %>% #2 check this
+  mutate(modelno = 1:30) 
+
+allm <- as.data.frame(delta_res) %>%
+  mutate(modelno = 1:30) %>%
+  arrange(deltaAIC) %>%
+  left_join(usmr, by = "modelno") %>%
+  dplyr::select(modelno, FEs, k, deltaAIC, deltaBIC)
+
+## create df with top models
+bestm <- allm %>%
+  filter(deltaAIC <= 2) 
+```
+There may be issues with model fits (boundary (singular) fit: see ?isSingular) but SST was still not included in the top competitive models. 
+
 # Top Model
-Here we look at the top competitive model, but there is a competiting top model also. 
+Here we look at the top competitive model, but there is a competitive top model also. 
 ```{r bestmod}
 ##run model
 bm <- lmer(Size ~ EggOrder + ANCHL + BEUTI + NPGO + (1 | Observer) + (1 | Plot), data = df)
