@@ -23,13 +23,13 @@ library(sjPlot)
 This is `r paste0("v.", (Sys.Date()))`
 
 #TODO
-- Look into another source for SST temperature due to 2011 gaps in buoy data
-- Shift months for NPGO? Dec-March see Chenillat et al. 2012
-- Check covariate correlations with new NPGO values
 - Calculate confidence intervals
-- Prediction…. In a year with good anchovies/bad anchovies, etc
-- Diagnostics: ACF plot 
+- Check if outliers are influential
+- Prediction
+- Diagnostics
 - Likelihood ratio tests for random effects
+- Correlation of fixed effects
+- Multi-modal inference?
 
 # Introduction
 This document details steps taken to model Scripps's Murrelet (*Synthliboramphus scrippsi*) egg size at Santa Barbara Island within Channel Islands National Park from 2009-2017.  
@@ -43,17 +43,6 @@ covars <- read_csv(here("data", "covariates", "covars.csv"))
 df <- left_join(egg, covars, by = "Year") %>%
   filter(TrueOrder == TRUE) %>% # egg order known only
   select(Year, Observer, Plot, Size, EggOrder, ANCHL, BEUTI, NPGO, ONI, PDO, SST)
-
-## join covariate data with egg data by year without SST
-df2 <- left_join(egg, covars, by = "Year") %>%
-  filter(TrueOrder == TRUE) %>% # egg order known only
-  select(Year, Observer, Plot, Size, EggOrder, ANCHL, BEUTI, NPGO, ONI, PDO)
-
-## join covariate data with egg data by year without 2011 data
-df3 <- left_join(egg, covars, by = "Year") %>%
-  filter(TrueOrder == TRUE) %>% # egg order known only
-  select(Year, Observer, Plot, Size, EggOrder, ANCHL, BEUTI, NPGO, ONI, PDO, SST) %>%
-  filter(Year != 2011)
 ```
 
 # Null Intercept-Only Model
@@ -72,9 +61,6 @@ plot.ranef <- ranef(nm)$Plot
 ## the mean of these values should be close to 0
 mean(obs.ranef[[1]])
 mean(plot.ranef[[1]])
-
-## here's another way to look at the model results
-sjPlot::tab_model(nm)
 
 ## quick model diagnostics
 ## extract predicted values and plot
@@ -120,9 +106,6 @@ sumary(order.mod)
 coef(summary(order.mod))
 VarCorr(order.mod)
 ranef(order.mod)
-
-## another way to look at model output 
-sjPlot::tab_model(order.mod)
 ```
 
 # Fit Candidate Models
@@ -137,21 +120,18 @@ cov_names <- colnames(predictors) <- colnames(df[,5:11])
 full_set <- expand.grid(predictors) # 128 combinations
 
 ## select models with correlated predictors
-ii <- which(full_set$SST + full_set$NPGO == 2 |
-              full_set$NPGO + full_set$PDO == 2 |
+ii <- which(full_set$ANCHL + full_set$NPGO == 2 |
               full_set$BEUTI + full_set$PDO == 2 |
-              full_set$ANCHL + full_set$SST == 2 |
+              full_set$NPGO + full_set$SST == 2 |
+              full_set$ONI + full_set$PDO == 2 |
               full_set$ONI + full_set$SST == 2 |
-              full_set$ANCHL + full_set$ONI == 2 |
-              full_set$ANCHL + full_set$PDO == 2 |
-              full_set$PDO + full_set$SST == 2 |
-              full_set$ONI + full_set$PDO == 2) # 98 models
+              full_set$PDO + full_set$SST == 2 ) # 90 models
 
 ## create reduced set of models and convert to a matrix for easier indexing
-use_set <- as.matrix(full_set[-ii,]) # 30 models
+use_set <- as.matrix(full_set[-ii,]) # 38 models
 
 ## number of models in set
-(n_mods <- nrow(use_set)) # 30 models out of potential 128
+(n_mods <- nrow(use_set)) # 38 models out of potential 64
 
 ## create empty matrix for storing results
 mod_res <- matrix(NA, n_mods, 2)
@@ -194,10 +174,10 @@ mpfe <- mp %>%
 
 usmr <- mpfe %>%
   mutate(k = as.vector(rowSums(use_set) + 2)) %>% #2 check this
-  mutate(modelno = 1:30) 
+  mutate(modelno = 1:38) 
 
 allm <- as.data.frame(delta_res) %>%
-  mutate(modelno = 1:30) %>%
+  mutate(modelno = 1:38) %>%
   arrange(deltaAIC) %>%
   left_join(usmr, by = "modelno") %>%
   dplyr::select(modelno, FEs, k, deltaAIC, deltaBIC)
@@ -206,229 +186,76 @@ allm <- as.data.frame(delta_res) %>%
 bestm <- allm %>%
   filter(deltaAIC <= 2) 
 ```
-There are two competitive models. 
+There are three competitive models. All three models include BEUTI as a predictor.
 
-# Fit Candidate Models without SST
-```{r mods2}
-## create data frame specifying predictors to include
-predictors <- as.data.frame(matrix(c(FALSE, TRUE), 2, 6)) # 6 potential predictors (includes EggOrder)
+# Top Models
+Here we look at the top three competitive models. 
 
-## add column names
-cov_names <- colnames(predictors) <- colnames(df2[,5:10])
-
-## create set of all possible combinations
-full_set <- expand.grid(predictors) # 64 combinations
-
-## select models with correlated predictors
-ii <- which(  full_set$NPGO + full_set$PDO == 2 |
-              full_set$BEUTI + full_set$PDO == 2 |
-              full_set$ANCHL + full_set$ONI == 2 |
-              full_set$ANCHL + full_set$PDO == 2 |
-              full_set$ONI + full_set$PDO == 2) # 38 models
-
-## create reduced set of models and convert to a matrix for easier indexing
-use_set <- as.matrix(full_set[-ii,]) # 26 models
-
-## number of models in set
-(n_mods <- nrow(use_set)) # 26 models out of potential 64
-
-## create empty matrix for storing results
-mod_res <- matrix(NA, n_mods, 2)
-colnames(mod_res) <- c("AIC", "BIC")
-
-## fit models and store AIC & BIC
-for(i in 1:n_mods) {
-  if(i == 1) {
-    fmla <- "Size ~ 1 + (1 | Observer) + (1 | Plot)"
-  } else {
-    fmla <- paste("Size ~ (1 | Observer) + (1 | Plot) +", paste(cov_names[use_set[i,]], collapse = " + "))
-  }
-  mod_fit <- lmer(as.formula(fmla), data = df2)
-  mod_res[i,"AIC"] <- AIC(mod_fit)
-  mod_res[i,"BIC"] <- BIC(mod_fit) 
-}
-
-## create empty matrix for storing results
-delta_res <- matrix(NA, n_mods, 2)
-colnames(delta_res) <- c("deltaAIC", "deltaBIC")
-
-## convert IC to deltaIC
-delta_res[,"deltaAIC"] <- mod_res[,"AIC"] - min(mod_res[,"AIC"])
-delta_res[,"deltaBIC"] <- mod_res[,"BIC"] - min(mod_res[,"BIC"])
-(delta_res <- round(delta_res, 2)) # round results
-
-## create df with mod results
-mp <- as.data.frame(use_set)
-
-for (i in 1:length(mp)) {
-   mp[[i]] <- str_replace(mp[[i]], "TRUE", colnames(mp)[i])
-}
-
-for (i in 1:length(mp)) {
-   mp[[i]] <- str_replace(mp[[i]], "FALSE", " ")
-}
-
-mpfe <- mp %>%
-  mutate(FEs = paste(EggOrder, ANCHL, BEUTI, NPGO, ONI, PDO, sep = " "))
-
-usmr <- mpfe %>%
-  mutate(k = as.vector(rowSums(use_set) + 2)) %>% #2 check this
-  mutate(modelno = 1:26) 
-
-allm <- as.data.frame(delta_res) %>%
-  mutate(modelno = 1:26) %>%
-  arrange(deltaAIC) %>%
-  left_join(usmr, by = "modelno") %>%
-  dplyr::select(modelno, FEs, k, deltaAIC, deltaBIC)
-
-## create df with top models
-bestm <- allm %>%
-  filter(deltaAIC <= 2) 
-```
-There are two competitive models. 
-
-# Fit Candidate Models without 2011 data 
-This is the year with gappy SST. We fit the models without 2011 data so that we could include SST as a predictor and see if it made any of the top models. 
-```{r mods3}
-## create data frame specifying predictors to include
-predictors <- as.data.frame(matrix(c(FALSE, TRUE), 2, 7)) # 7 potential predictors (includes EggOrder)
-
-## add column names
-cov_names <- colnames(predictors) <- colnames(df3[,5:11])
-
-## create set of all possible combinations
-full_set <- expand.grid(predictors) # 128 combinations
-
-## select models with correlated predictors
-ii <- which(full_set$SST + full_set$NPGO == 2 |
-              full_set$NPGO + full_set$PDO == 2 |
-              full_set$BEUTI + full_set$PDO == 2 |
-              full_set$ANCHL + full_set$SST == 2 |
-              full_set$ONI + full_set$SST == 2 |
-              full_set$ANCHL + full_set$ONI == 2 |
-              full_set$ANCHL + full_set$PDO == 2 |
-              full_set$PDO + full_set$SST == 2 |
-              full_set$ONI + full_set$PDO == 2) # 98 models
-
-## create reduced set of models and convert to a matrix for easier indexing
-use_set <- as.matrix(full_set[-ii,]) # 30 models
-
-## number of models in set
-(n_mods <- nrow(use_set)) # 30 models out of potential 128
-
-## create empty matrix for storing results
-mod_res <- matrix(NA, n_mods, 2)
-colnames(mod_res) <- c("AIC", "BIC")
-
-## fit models and store AIC & BIC
-for(i in 1:n_mods) {
-  if(i == 1) {
-    fmla <- "Size ~ 1 + (1 | Observer) + (1 | Plot)"
-  } else {
-    fmla <- paste("Size ~ (1 | Observer) + (1 | Plot) +", paste(cov_names[use_set[i,]], collapse = " + "))
-  }
-  mod_fit <- lmer(as.formula(fmla), data = df3)
-  mod_res[i,"AIC"] <- AIC(mod_fit)
-  mod_res[i,"BIC"] <- BIC(mod_fit) 
-} #isSingular error
-
-## create empty matrix for storing results
-delta_res <- matrix(NA, n_mods, 2)
-colnames(delta_res) <- c("deltaAIC", "deltaBIC")
-
-## convert IC to deltaIC
-delta_res[,"deltaAIC"] <- mod_res[,"AIC"] - min(mod_res[,"AIC"])
-delta_res[,"deltaBIC"] <- mod_res[,"BIC"] - min(mod_res[,"BIC"])
-(delta_res <- round(delta_res, 2)) # round results
-
-## create df with mod results
-mp <- as.data.frame(use_set)
-
-for (i in 1:length(mp)) {
-   mp[[i]] <- str_replace(mp[[i]], "TRUE", colnames(mp)[i])
-}
-
-for (i in 1:length(mp)) {
-   mp[[i]] <- str_replace(mp[[i]], "FALSE", " ")
-}
-
-mpfe <- mp %>%
-  mutate(FEs = paste(EggOrder, ANCHL, BEUTI, NPGO, ONI, PDO, SST, sep = " "))
-
-usmr <- mpfe %>%
-  mutate(k = as.vector(rowSums(use_set) + 2)) %>% #2 check this
-  mutate(modelno = 1:30) 
-
-allm <- as.data.frame(delta_res) %>%
-  mutate(modelno = 1:30) %>%
-  arrange(deltaAIC) %>%
-  left_join(usmr, by = "modelno") %>%
-  dplyr::select(modelno, FEs, k, deltaAIC, deltaBIC)
-
-## create df with top models
-bestm <- allm %>%
-  filter(deltaAIC <= 2) 
-```
-There may be issues with model fits (boundary (singular) fit: see ?isSingular) but SST was still not included in the top competitive models. 
-
-# Top Model
-Here we look at the top competitive model, but there is a competitive top model also. 
-```{r bestmod}
+## First Top Model
+```{r bestmod1}
 ##run model
-bm <- lmer(Size ~ EggOrder + ANCHL + BEUTI + NPGO + (1 | Observer) + (1 | Plot), data = df)
+bm1 <- lmer(Size ~ EggOrder + BEUTI + NPGO + ONI + (1 | Observer) + (1 | Plot), data = df)
 ## look at model output and estimates
-summary(bm)
-coef(bm)
-ranef(bm)
-model.matrix(bm)
+summary(bm1)
+coef(bm1)
+ranef(bm1)
+model.matrix(bm1)
+```
 
-## output table
-sjPlot::tab_model(bm)
 
-##look at competitive model 
-bm2 <- lmer(Size ~ EggOrder + ONI + BEUTI + NPGO + (1 | Observer) + (1 | Plot), data = df)
+## Second Top Model
+```{r bestmod2}
+##run model
+bm2 <- lmer(Size ~ EggOrder + ANCHL + BEUTI + ONI + (1 | Observer) + (1 | Plot), data = df)
 
 ## look at model output and estimates
 summary(bm2)
 coef(bm2)
 ranef(bm2)
 model.matrix(bm2)
-
-## output table
-sjPlot::tab_model(bm2)
 ```
 
-# Model Diagnostics
 
-### Residuals/Fitted Plots
+## Third Top Model
+```{r bestmod3}
+##run model
+bm3 <- lmer(Size ~ EggOrder + ANCHL + BEUTI + SST + (1 | Observer) + (1 | Plot), data = df)
+
+## look at model output and estimates
+summary(bm3)
+coef(bm3)
+ranef(bm3)
+model.matrix(bm3)
+```
+
+
+# Model Diagnostics
+These diagnostics are done for the first top model only but can be repeated for the other 2 models. 
+
+## Residuals/Fitted Plots
 ```{r diagnostics}
 ## extract predicted values and plot
-preds <- predict(bm)
+preds <- predict(bm1)
 ggplot() + 
   geom_histogram(mapping = aes(preds)) + 
   theme_minimal()
 
 ## extract residuals and plot
-resids <- residuals(bm)
+resids <- residuals(bm1)
 ggplot() + 
   geom_histogram(mapping = aes(resids)) + 
   theme_minimal()
 
 ## extract coeffs and random effects
-coef(bm)
-ranef_obs <- ranef(bm)$Observer
-ranef_pl <- ranef(bm)$Plot
+coef(bm1)
+ranef_obs <- ranef(bm1)$Observer
+ranef_pl <- ranef(bm1)$Plot
 
 ## estimated mean egg size
-# eta <- predict(bm)
-# mean(eta) # is this right?
+eta <- predict(bm1)
+mean(eta) # is this right?
 
 ## Q-Q Plots
-# ## set plot area
-# par(mai = c(0.9, 0.9, 0.6, 0.1),
-#     omi = c(0, 0, 0, 0),
-#     mfrow = c(1,2), cex.lab = 1.2)
-
 # qq resids
 qqnorm(resids, main = "QQ plot (residuals)", las = 1, pch = 16)
 qqline(resids)
@@ -442,14 +269,14 @@ qqnorm(unlist(ranef_obs), main = "QQ plot (Observer RE)", las = 1, pch = 16)
 qqline(unlist(ranef_obs))
 
 ## plot residuals versus fitted values
-yh <- fitted(bm)
+yh <- fitted(bm1)
 plot(yh, resids, las = 1, pch = 16,
      xlab = "Fitted", ylab = "Residuals",
      main = "Residuals vs fitted")
 abline(h=0, lty = "dashed")
 ```
 
-### Levene's test
+## Levene's test
 ```{r lev}
 ## Levene's test
 ## split residuals into 2 groups
@@ -458,10 +285,10 @@ g2 <- resids[yh > median(yh)]
 
 ## Levene's test
 var.test(g1, g2)
-# There is no justification to reject the null hypothesis that the residuals are equal. F is close to 1 and it is within the 95% confidence interval. 
 ```
+There is no justification to reject the null hypothesis that the residuals are equal. F is close to 1 and it is within the 95% confidence interval. 
 
-### Autocorrelation
+## Autocorrelation
 ```{r acf}
 # calculate the ACF for lags between 1 and 10 
 autocorrelation <- acf(resids, lag.max= 10, plot = FALSE)
@@ -472,25 +299,38 @@ plot(autocorrelation,
      xlab="Lag Parameter",
      ylab="ACF")
 ```
+There does not appear to be autocorrelation in the residuals. 
 
-
-### Goodness of Fit
-
+## Goodness of Fit
 ```{r gof}
 ## Goodness of fit
 ## Pearson's X^2 statistic
-X2 <- sum((success - yh)^2/yh)
+true <- df$Size # 'true' egg size values
+nn <- nrow(df) # number of observations
+X2 <- sum((true - yh)^2/yh)
 df <- nn-6 # 4 fixed effects, 2 random effects
 
 ## likelihood ratio test
-pchisq(X2, df = 1323, lower.tail = FALSE)
+pchisq(X2, df = 868, lower.tail = FALSE)
 # large p-value, cannot reject H_0
-
-## check for overdispersion 
-c_hat <- deviance(bm)/df
-# close to 1
 ```
 
+## Correlation among Random Effects
+```{r recorr}
+## get var(RE)
+(var_re_site <- as.data.frame(VarCorr(mod_site)))
+
+## variance of random effects
+sigma2_alpha <- var_re_site$vcov[1]
+## variance of residuals
+sigma2_epsilon <- var_re_site$vcov[2]
+## calculate the correlation among RE's
+rho <- sigma2_alpha / (sigma2_alpha + sigma2_epsilon)
+round(rho, 2)
+
+```
+
+## Likelihood Ratio Tests
 ```{r likelihoodratio}
 ## Likelihood ratio tests  
 ## run model with plot RE only
@@ -537,3 +377,31 @@ for(i in 1:nb) { # repeat nb times
 mean(LRT_boot > lambda)
 # none of the bootstrapped samples had a test statistic larger than the original value of lambda
 ```
+
+# Multi-modal Inference
+https://qerm514.github.io/website/labs/week_05/model_selection.html#multi-model_inference
+```{r mminf}
+## empty matrix for storing coefficients
+## we'll fill it with 0's and replace them with the param estimates
+mod_coef <- matrix(0, n_mods, 1 + ncol(df))
+colnames(mod_coef) <- c("Intercept", colnames(df))
+
+## fit models & store AIC & BIC
+for(i in 1:n_mods) {
+  if(i == 1) {
+    fmla <- "Species ~ 1"
+  } else {
+    fmla <- paste("Species ~", paste(cov_names[use_set[i,]], collapse = " + "))
+  }
+  mod_fit <- lm(as.formula(fmla), data = gala)
+  mod_coef[i, c(TRUE, use_set[i,])] <- coef(mod_fit)
+}
+
+## calculate weighted coefs
+wtd_coef <- mod_coef * wts
+(avg_coef <- colSums(wtd_coef))
+
+```
+
+# Identifying Outliers
+https://qerm514.github.io/website/labs/week_03/diagnostics_and_errors.html#unusual_observations

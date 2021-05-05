@@ -32,80 +32,102 @@ We decided to pull relevant covariates from January-June only because murrelets 
 ## Local oceanographic conditions
 
 ### Sea Surface Temperature
+Buoy 46025  
 NOAA buoy station 46025: https://www.ndbc.noaa.gov/station_page.php?station=46025  
 Historical data here: https://www.ndbc.noaa.gov/station_history.php?station=46025  
 Data descriptions here: https://www.ndbc.noaa.gov/measdes.shtml  
+Data pulled from: https://www.integratedecosystemassessment.noaa.gov/regions/california-current/cc-indicator-status-trends
 ```{r sst}
-## load annual files
-wx2009 <- read_csv(here("data", "covariates", "buoy_46025_2009_wx.csv"), na = c("999")) %>%
-  slice(-c(1))  %>% 
-  dplyr::select(1:4, 15)
-wx2010 <- read_csv(here("data", "covariates", "buoy_46025_2010_wx.csv"), na = c("999")) %>%
-  slice(-c(1)) %>% 
-  dplyr::select(1:4, 15)
-wx2011 <- read_csv(here("data", "covariates", "buoy_46025_2011_wx.csv"), na = c("999")) %>%
-  slice(-c(1)) %>% 
-  dplyr::select(1:4, 15)
-wx2012 <- read_csv(here("data", "covariates", "buoy_46025_2012_wx.csv"), na = c("999")) %>%
-  slice(-c(1)) %>% 
-  dplyr::select(1:4, 15)
-wx2013 <- read_csv(here("data", "covariates", "buoy_46025_2013_wx.csv"), na = c("999")) %>%
-  slice(-c(1)) %>% 
-  dplyr::select(1:4, 15)
-wx2014 <- read_csv(here("data", "covariates", "buoy_46025_2014_wx.csv"), na = c("999")) %>%
-  slice(-c(1)) %>% 
-  dplyr::select(1:4, 15)
-wx2015 <- read_csv(here("data", "covariates", "buoy_46025_2015_wx.csv"), na = c("999")) %>%
-  slice(-c(1)) %>% 
-  dplyr::select(1:4, 15)
-wx2016 <- read_csv(here("data", "covariates", "buoy_46025_2016_wx.csv"), na = c("999")) %>%
-  slice(-c(1)) %>% 
-  dplyr::select(1:4, 15)
-wx2017 <- read_csv(here("data", "covariates", "buoy_46025_2017_wx.csv"), na = c("999")) %>%
-  slice(-c(1)) %>% 
-  dplyr::select(1:4, 15)
+SSTraw <- read.csv(here("data", "covariates", "cciea_OC_SST3_91cf_d165_213f-46025.csv"))
 
-## bind to create one wx file
-SSTraw <- rbind(wx2009, wx2010, wx2011, wx2012, wx2013, wx2014, wx2015, wx2016, wx2017) %>%
-  rename(Year = "#YY")
-
-## check for data duplicates
-## include minute column?
-
-## check NAs per year 
-table(SSTraw$WTMP, useNA = "always") # 983 NAs
-sst_NAs <- SSTraw %>%
-  group_by(Year) %>%
-  summarise(TotalNAs = sum(is.na(WTMP))) # lots of NAs in 2012
-
-## check dataframes links, sampling frequency changes
-
-## where are the NAs in 2012?
-# plot(wx2012$MM, wx2012$WTMP) # data missing in spring/summer
-
-## create mean annual sst
-SST_full <- SSTraw %>%
-  mutate(WTMP = as.numeric(WTMP)) %>%
-  group_by(Year) %>%
-  summarise(SST = mean(WTMP, na.rm = TRUE)) %>%
-  filter(Year >= 2009 & Year <= 2017) %>%
-  arrange(Year) %>%
-  as.tibble()
-
-## create mean sst for Jan-May
+## for January-June only
 SST <- SSTraw %>%
-  mutate(WTMP = as.numeric(WTMP),
-         MM = as.numeric(MM)) %>%
-  filter(MM == 1:6) %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time),
+         Month = month(time)) %>%
+  mutate(sst = as.numeric(SST)) %>%
+  filter(Month == 1 | Month == 2 | Month == 3 |Month == 4 | Month == 5 | Month == 6) %>% ## fix all months!!!
   group_by(Year) %>%
-  summarise(SST = mean(WTMP, na.rm = TRUE)) %>%
+  summarise(SST = mean(sst, na.rm = TRUE)) %>%
+  dplyr::select(Year, SST) %>%
   filter(Year >= 2009 & Year <= 2017) %>%
   arrange(Year) %>%
   as.tibble()
+
+# ## load annual files
+# wx2009 <- read_csv(here("data", "covariates", "buoy_46025_2009_wx.csv"), na = c("999")) %>%
+#   slice(-c(1))  %>% 
+#   dplyr::select(1:4, 15)
+# wx2010 <- read_csv(here("data", "covariates", "buoy_46025_2010_wx.csv"), na = c("999")) %>%
+#   slice(-c(1)) %>% 
+#   dplyr::select(1:4, 15)
+# wx2011 <- read_csv(here("data", "covariates", "buoy_46025_2011_wx.csv"), na = c("999")) %>%
+#   slice(-c(1)) %>% 
+#   dplyr::select(1:4, 15)
+# wx2012 <- read_csv(here("data", "covariates", "buoy_46025_2012_wx.csv"), na = c("999")) %>%
+#   slice(-c(1)) %>% 
+#   dplyr::select(1:4, 15)
+# wx2013 <- read_csv(here("data", "covariates", "buoy_46025_2013_wx.csv"), na = c("999")) %>%
+#   slice(-c(1)) %>% 
+#   dplyr::select(1:4, 15)
+# wx2014 <- read_csv(here("data", "covariates", "buoy_46025_2014_wx.csv"), na = c("999")) %>%
+#   slice(-c(1)) %>% 
+#   dplyr::select(1:4, 15)
+# wx2015 <- read_csv(here("data", "covariates", "buoy_46025_2015_wx.csv"), na = c("999")) %>%
+#   slice(-c(1)) %>% 
+#   dplyr::select(1:4, 15)
+# wx2016 <- read_csv(here("data", "covariates", "buoy_46025_2016_wx.csv"), na = c("999")) %>%
+#   slice(-c(1)) %>% 
+#   dplyr::select(1:4, 15)
+# wx2017 <- read_csv(here("data", "covariates", "buoy_46025_2017_wx.csv"), na = c("999")) %>%
+#   slice(-c(1)) %>% 
+#   dplyr::select(1:4, 15)
+# 
+# ## bind to create one wx file
+# SSTraw <- rbind(wx2009, wx2010, wx2011, wx2012, wx2013, wx2014, wx2015, wx2016, wx2017) %>%
+#   rename(Year = "#YY")
+# 
+# ## check for data duplicates
+# ## include minute column?
+# 
+# ## check NAs per year 
+# table(SSTraw$WTMP, useNA = "always") # 983 NAs
+# sst_NAs <- SSTraw %>%
+#   group_by(Year) %>%
+#   summarise(TotalNAs = sum(is.na(WTMP))) # lots of NAs in 2012
+# 
+# ## check dataframes links, sampling frequency changes
+# 
+# ## where are the NAs in 2012?
+# # plot(wx2012$MM, wx2012$WTMP) # data missing in spring/summer
+# 
+# ## create mean annual sst
+# SST_full <- SSTraw %>%
+#   mutate(WTMP = as.numeric(WTMP)) %>%
+#   group_by(Year) %>%
+#   summarise(SST = mean(WTMP, na.rm = TRUE)) %>%
+#   filter(Year >= 2009 & Year <= 2017) %>%
+#   arrange(Year) %>%
+#   as.tibble()
+# 
+# ## create mean sst for Jan-May
+# SST <- SSTraw %>%
+#   mutate(WTMP = as.numeric(WTMP),
+#          MM = as.numeric(MM)) %>%
+#   filter(MM == 1:6) %>%
+#   group_by(Year) %>%
+#   summarise(SST = mean(WTMP, na.rm = TRUE)) %>%
+#   filter(Year >= 2009 & Year <= 2017) %>%
+#   arrange(Year) %>%
+#   as.tibble()
 ```
 
+Buoy 46215  
+This buoy was established in 2013. 
 NOAA buoy station 46251: https://www.ndbc.noaa.gov/station_page.php?station=46251
-Try pulling SST here instead to avoid gaps?
+Historical data here: https://www.ndbc.noaa.gov/station_history.php?station=46251
+
 
 ## Forage fish 
 Data from NOAA IEA 
@@ -195,7 +217,7 @@ PDO <- PDOraw %>%
   mutate(Year = year(time),
          Month = month(time)) %>%
   mutate(pdo = as.numeric(PDO)) %>%
-  filter(Month == 1:6) %>%
+  filter(Month == 1 | Month == 2 | Month == 3 |Month == 4 | Month == 5 | Month == 6) %>%
   group_by(Year) %>%
   summarise(PDO = mean(pdo, na.rm = TRUE)) %>%
   dplyr::select(Year, PDO) %>%
@@ -230,7 +252,7 @@ ONI <- ONIraw %>%
   mutate(Year = year(time),
          Month = month(time)) %>%
   mutate(oni = as.numeric(ONI)) %>%
-  filter(Month == 1:6) %>%
+  filter(Month == 1 | Month == 2 | Month == 3 |Month == 4 | Month == 5 | Month == 6) %>%
   group_by(Year) %>%
   summarise(ONI = mean(oni, na.rm = TRUE)) %>%
   dplyr::select(Year, ONI) %>%
@@ -351,7 +373,7 @@ BEUTI <- BEUTIraw %>%
   mutate(Year = year(time),
          Month = month(time)) %>%
   mutate(beuti = as.numeric(beuti)) %>%
-  filter(Month == 1:6) %>%
+  filter(Month == 1 | Month == 2 | Month == 3 |Month == 4 | Month == 5 | Month == 6) %>%
   group_by(Year) %>%
   summarise(BEUTI = mean(beuti, na.rm = TRUE)) %>%
   dplyr::select(Year, BEUTI) %>%
@@ -405,23 +427,20 @@ cor <- rcorr(as.matrix(covars))
 cor_vals <- flattenCorrMatrix(cor$r, cor$P) %>% arrange(cor)
 
 ## makes a plot
-corrplot(cor$r, type = "lower", order = "original", p.mat = cor$P,
-         insig = "blank", sig.level = 0.01, tl.col = "black", tl.cex = .9, number.cex = .2)
+# corrplot(cor$r, type = "lower", order = "original", p.mat = cor$P,
+#          insig = "blank", sig.level = 0.01, tl.col = "black", tl.cex = .9, number.cex = .2)
+
+corrplot(cor$r)
 ```
 Positive correlations are displayed in blue and negative correlations in red color. Color intensity and the size of the circle are proportional to the correlation coefficients.  
 
-We selected +/- 0.65 as our cutoff for correlation (Note: Check with Sarah). The following covariates should not be in the same model:
-1. NPGO and SST
-2. NPGO and PDO
-3. BEUTI and PDO
-4. ANCHL and SST
+We selected +/- 0.65 as our cutoff for correlation. The following covariates should not be in the same model:
+1. ANCHL and NPGO
+2. BEUTI and PDO
+3. NPGO and SST
+4. ONI and PDO
 5. ONI and SST
-6. ANCHL and ONI
-7. ANCHL and PDO
-8. PDO and SST
-9. ONI and PDO
-
-Note: Why aren't all of the correlations shown in the plot?  
+6. PDO and SST
 
 # Number of Candidate Models
 
@@ -436,21 +455,18 @@ cov_names <- colnames(predictors) <- colnames(covars)
 full_set <- expand.grid(predictors) # 64 combinations
 
 ## select models with correlated predictors
-ii <- which(full_set$SST + full_set$NPGO == 2 |
-              full_set$NPGO + full_set$PDO == 2 |
+ii <- which(full_set$ANCHL + full_set$NPGO == 2 |
               full_set$BEUTI + full_set$PDO == 2 |
-              full_set$ANCHL + full_set$SST == 2 |
+              full_set$NPGO + full_set$SST == 2 |
+              full_set$ONI + full_set$PDO == 2 |
               full_set$ONI + full_set$SST == 2 |
-              full_set$ANCHL + full_set$ONI == 2 |
-              full_set$ANCHL + full_set$PDO == 2 |
-              full_set$PDO + full_set$SST == 2 |
-              full_set$ONI + full_set$PDO == 2) # 49 models
+              full_set$PDO + full_set$SST == 2 ) # 45 models
 
 ## create reduced set of models and convert to a matrix for easier indexing
-use_set <- as.matrix(full_set[-ii,]) # 15 models
+use_set <- as.matrix(full_set[-ii,]) # 19 models
 
 ## number of models in set
-(n_mods <- nrow(use_set)) # 15 models out of potential 64
+(n_mods <- nrow(use_set)) # 19 models out of potential 64
 ```
 
 # Final Covariates Plot
@@ -478,5 +494,5 @@ finalcovars <- covars %>%
   mutate(Year = 2009:2017) %>%
   select(Year, everything())
 
-#write.csv(x = finalcovars, file = here("data", "covariates", "covars.csv")) 
+# write.csv(x = finalcovars, file = here("data", "covariates", "covars.csv")) 
 ```
