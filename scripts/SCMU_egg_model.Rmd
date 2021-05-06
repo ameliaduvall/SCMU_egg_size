@@ -302,6 +302,7 @@ plot(autocorrelation,
 There does not appear to be autocorrelation in the residuals. 
 
 ## Goodness of Fit
+Review with Sarah
 ```{r gof}
 ## Goodness of fit
 ## Pearson's X^2 statistic
@@ -318,7 +319,7 @@ pchisq(X2, df = 868, lower.tail = FALSE)
 ## Correlation among Random Effects
 ```{r recorr}
 ## get var(RE)
-(var_re_site <- as.data.frame(VarCorr(mod_site)))
+(var_re_site <- as.data.frame(VarCorr(bm1)))
 
 ## variance of random effects
 sigma2_alpha <- var_re_site$vcov[1]
@@ -327,37 +328,36 @@ sigma2_epsilon <- var_re_site$vcov[2]
 ## calculate the correlation among RE's
 rho <- sigma2_alpha / (sigma2_alpha + sigma2_epsilon)
 round(rho, 2)
-
 ```
 
 ## Likelihood Ratio Tests
 ```{r likelihoodratio}
 ## Likelihood ratio tests  
 ## run model with plot RE only
-bm_plot <- glmer(Success ~ Type + (1 | Plot), data = SCMU, family = binomial)
-## run model with year RE only
-bm_yr <- glmer(Success ~ Type + (1 | Year), data = SCMU, family = binomial)
-## run model with both REs (same as top model)
+bm_plot <- lmer(Size ~ EggOrder + BEUTI + NPGO + ONI +  (1 | Plot), data = df)
+## run model with obs RE only
+bm_obs <- lmer(Size ~ EggOrder + BEUTI + NPGO + ONI + (1 | Observer), data = df)
+## run model with both REs (same as top model) bm1
 
-## conduct an LRT to see if the variance of the Plot RE is contributing useful info
-test_1 <- 2 * (logLik(bm) - logLik(bm_yr))
+## conduct an LRT to see if the variance of the Obs RE is contributing useful info
+test_1 <- 2 * (logLik(bm1) - logLik(bm_obs))
 pchisq(as.numeric(test_1), df = 1, lower.tail = FALSE)
-# There is support for inclusion of Plot as an RE
+# There is support for inclusion of Obs as an RE
 
-## check for contribution of Year RE
-test_2 <- 2 * (logLik(bm) - logLik(bm_plot))
+## check for contribution of Plot RE
+test_2 <- 2 * (logLik(bm1) - logLik(bm_plot))
 pchisq(as.numeric(test_2), df = 1, lower.tail = FALSE)
-# There is support for inclusion of Year as an RE
+# There is support for inclusion of Plot as an RE
 
 ## Bootstrapping  to test for evidence against including multiple random effects in the same model
 ## set random seed 
 set.seed(514)
 
 ## fit null model with no RE's 
-nbm <- lm(Success ~ Type, data = SCMU)
+nbm <- lm(Size ~ EggOrder + BEUTI + NPGO + ONI, data = df)
 
 ## calculate likelihood ratio (difference in log-likelihood)
-lambda <- 2 * (logLik(bm) - logLik(nbm))
+lambda <- 2 * (logLik(bm1) - logLik(nbm))
 
 ## number of bootstrapped samples
 nb <- 1000
@@ -368,10 +368,10 @@ LRT_boot <- rep(NA, nb)
 ## bootstrapping
 for(i in 1:nb) { # repeat nb times
   sim_data <- unlist(simulate(nbm)) # simulate data from null model
-  m_null <- lm(sim_data ~ Type, data = SCMU) # fit null model to sim data 
-  m_alt <- lmer(sim_data ~ Type + (1 | Year) + (1 | Plot), data = SCMU, REML = FALSE) # fit RE model
+  m_null <- lm(sim_data ~ EggOrder + BEUTI + NPGO + ONI, data = df) # fit null model to sim data 
+  m_alt <- lmer(sim_data ~ EggOrder + BEUTI + NPGO + ONI + (1 | Observer) + (1 | Plot), data = df) # fit RE model
   LRT_boot[i] <- as.numeric(2*(logLik(m_alt) - logLik(m_null))) # calculate likelihood ratio 
-}
+} # boundary (singular) fit: see ?isSingular
 
 ## calculate approximate p-value
 mean(LRT_boot > lambda)
@@ -405,3 +405,35 @@ wtd_coef <- mod_coef * wts
 
 # Identifying Outliers
 https://qerm514.github.io/website/labs/week_03/diagnostics_and_errors.html#unusual_observations
+https://qerm514.github.io/website/homework/week_03/hw_03_diagnostics_key.pdf
+Calculate the studentized residuals to look for outliers
+```{r outliers}
+## get studentized residuals
+(stud_e <- rstudent(bm1))
+
+## get sample size
+n <- nrow(df)
+
+## Bonferroni correction: alpha/n
+alpha <- 0.05/n
+
+## critical t value
+degf <- n - length(coef(bm1))-1 # should be more due to REs?
+t_crit <- qt(1 - alpha/2, degf)
+
+## compare t_stud to t_crit
+sum(stud_e > t_crit, na.rm = TRUE)
+```
+
+## Cook's Distance
+```{r cook}
+## Cook's D
+cook <- cooks.distance(bm1)
+
+# Plot the Cook's Distance using the traditional 4/n criterion
+sample_size <- nrow(df)
+plot(cook, pch="*", cex=2, main="Influential Obs by Cooks distance")  # plot cook's distance
+abline(h = 4/sample_size, col="red")  # add cutoff line
+text(x=1:length(cook)+1, y=cook, labels=ifelse(cook>4/sample_size, names(cook),""), col="red")  # add labels
+
+```
