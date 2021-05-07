@@ -47,7 +47,7 @@ SST <- SSTraw %>%
   mutate(Year = year(time),
          Month = month(time)) %>%
   mutate(sst = as.numeric(SST)) %>%
-  filter(Month == 1 | Month == 2 | Month == 3 |Month == 4 | Month == 5 | Month == 6) %>% ## fix all months!!!
+  filter(Month == 1 | Month == 2 | Month == 3 |Month == 4 | Month == 5 | Month == 6) %>% 
   group_by(Year) %>%
   summarise(SST = mean(sst, na.rm = TRUE)) %>%
   dplyr::select(Year, SST) %>%
