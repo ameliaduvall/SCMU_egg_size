@@ -29,7 +29,6 @@ This is `r paste0("v.", (Sys.Date()))`
 - Diagnostics
 - Likelihood ratio tests for random effects
 - Correlation of fixed effects
-- Multi-modal inference?
 
 # Introduction
 This document details steps taken to model Scripps's Murrelet (*Synthliboramphus scrippsi*) egg size at Santa Barbara Island within Channel Islands National Park from 2009-2017.  
@@ -186,7 +185,7 @@ allm <- as.data.frame(delta_res) %>%
 bestm <- allm %>%
   filter(deltaAIC <= 2) 
 ```
-There are three competitive models. All three models include BEUTI as a predictor.
+There are three competitive models. All three models include EggOrder and BEUTI as a predictor.
 
 # Top Models
 Here we look at the top three competitive models. 
@@ -233,29 +232,38 @@ model.matrix(bm3)
 These diagnostics are done for the first top model only but can be repeated for the other 2 models. 
 
 ## Residuals/Fitted Plots
-```{r diagnostics}
+
+### Histogram of Predicted Values
+```{r d1}
 ## extract predicted values and plot
 preds <- predict(bm1)
 ggplot() + 
   geom_histogram(mapping = aes(preds)) + 
   theme_minimal()
+```
+Since we assumed our data are normal, we want to see an approximately normal distribution of predicted values.
 
+### Histogram of Residuals
+```{r d2}
 ## extract residuals and plot
 resids <- residuals(bm1)
 ggplot() + 
   geom_histogram(mapping = aes(resids)) + 
   theme_minimal()
+```
+Since we assumed our data are normal, we want to see an approximately normal distribution of residuals (differences between observed and predicted values of data).
 
+### Model Coefficients
+```{r d3}
 ## extract coeffs and random effects
-coef(bm1)
-ranef_obs <- ranef(bm1)$Observer
-ranef_pl <- ranef(bm1)$Plot
+coef(bm1) # this include fixed and random effects
+ranef_obs <- ranef(bm1)$Observer # observer random effect only
+ranef_pl <- ranef(bm1)$Plot # plot random effect only
+```
+We can extract our model coefficients (for fixed and random effects) and look at them. 
 
-## estimated mean egg size
-eta <- predict(bm1)
-mean(eta) # is this right?
-
-## Q-Q Plots
+### Q-Q Plots
+```{r d4}
 # qq resids
 qqnorm(resids, main = "QQ plot (residuals)", las = 1, pch = 16)
 qqline(resids)
@@ -267,7 +275,12 @@ qqline(unlist(ranef_pl))
 # qq Observer RE
 qqnorm(unlist(ranef_obs), main = "QQ plot (Observer RE)", las = 1, pch = 16)
 qqline(unlist(ranef_obs))
+```
+We want our points to fall approximately on the diagonal lines. 
 
+
+### Fitted v Residuals
+```{r d5}
 ## plot residuals versus fitted values
 yh <- fitted(bm1)
 plot(yh, resids, las = 1, pch = 16,
@@ -275,10 +288,11 @@ plot(yh, resids, las = 1, pch = 16,
      main = "Residuals vs fitted")
 abline(h=0, lty = "dashed")
 ```
+We assume our errors are normally distributed with constant variance. We want this plot to look like a scattershot of points, without any evidence of trends. 
 
 ## Levene's test
+We can formally test the assumption of homogenous variance via the Levene's Test, which compares the absolute values of the residuals among groups. 
 ```{r lev}
-## Levene's test
 ## split residuals into 2 groups
 g1 <- resids[yh <= median(yh)]
 g2 <- resids[yh > median(yh)]
@@ -289,6 +303,7 @@ var.test(g1, g2)
 There is no justification to reject the null hypothesis that the residuals are equal. F is close to 1 and it is within the 95% confidence interval. 
 
 ## Autocorrelation
+We also assume our errors are independent (e.g., not correlated). An ACF plot can be used to look for autocorrelation. 
 ```{r acf}
 # calculate the ACF for lags between 1 and 10 
 autocorrelation <- acf(resids, lag.max= 10, plot = FALSE)
@@ -299,7 +314,7 @@ plot(autocorrelation,
      xlab="Lag Parameter",
      ylab="ACF")
 ```
-There does not appear to be autocorrelation in the residuals. 
+the first value with 0 lag will always be autocorrelated because it's stacked on itself. But after that, we want to see the values within the blue dotted lines. There does not appear to be autocorrelation in the residuals. 
 
 ## Goodness of Fit
 Review with Sarah
@@ -376,31 +391,6 @@ for(i in 1:nb) { # repeat nb times
 ## calculate approximate p-value
 mean(LRT_boot > lambda)
 # none of the bootstrapped samples had a test statistic larger than the original value of lambda
-```
-
-# Multi-modal Inference
-https://qerm514.github.io/website/labs/week_05/model_selection.html#multi-model_inference
-```{r mminf}
-## empty matrix for storing coefficients
-## we'll fill it with 0's and replace them with the param estimates
-mod_coef <- matrix(0, n_mods, 1 + ncol(df))
-colnames(mod_coef) <- c("Intercept", colnames(df))
-
-## fit models & store AIC & BIC
-for(i in 1:n_mods) {
-  if(i == 1) {
-    fmla <- "Species ~ 1"
-  } else {
-    fmla <- paste("Species ~", paste(cov_names[use_set[i,]], collapse = " + "))
-  }
-  mod_fit <- lm(as.formula(fmla), data = gala)
-  mod_coef[i, c(TRUE, use_set[i,])] <- coef(mod_fit)
-}
-
-## calculate weighted coefs
-wtd_coef <- mod_coef * wts
-(avg_coef <- colSums(wtd_coef))
-
 ```
 
 # Identifying Outliers
