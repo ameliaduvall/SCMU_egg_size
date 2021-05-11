@@ -92,7 +92,7 @@ abline(h=0, lty = "dashed")
 
 # Egg Order-only Model
 This model includes observer and plot as random effects and egg order as a fixed effect. 
-```{r null_model}
+```{r egg_model}
 ## run the model
 order.mod <- lmer(Size ~ EggOrder + (1 | Observer) + (1 | Plot), data = df)
 
