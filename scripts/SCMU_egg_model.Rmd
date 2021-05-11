@@ -24,11 +24,7 @@ This is `r paste0("v.", (Sys.Date()))`
 
 #TODO
 - Calculate confidence intervals
-- Check if outliers are influential
 - Prediction
-- Diagnostics
-- Likelihood ratio tests for random effects
-- Correlation of fixed effects
 
 # Introduction
 This document details steps taken to model Scripps's Murrelet (*Synthliboramphus scrippsi*) egg size at Santa Barbara Island within Channel Islands National Park from 2009-2017.  
@@ -227,7 +223,6 @@ ranef(bm3)
 model.matrix(bm3)
 ```
 
-
 # Model Diagnostics
 These diagnostics are done for the first top model only but can be repeated for the other 2 models. 
 
@@ -278,7 +273,6 @@ qqline(unlist(ranef_obs))
 ```
 We want our points to fall approximately on the diagonal lines. 
 
-
 ### Fitted v Residuals
 ```{r d5}
 ## plot residuals versus fitted values
@@ -314,45 +308,31 @@ plot(autocorrelation,
      xlab="Lag Parameter",
      ylab="ACF")
 ```
-the first value with 0 lag will always be autocorrelated because it's stacked on itself. But after that, we want to see the values within the blue dotted lines. There does not appear to be autocorrelation in the residuals. 
+The first value with 0 lag will always be autocorrelated because it's stacked on itself. But after that, we want to see the values within the blue dotted lines. There does not appear to be autocorrelation in the residuals. 
 
 ## Goodness of Fit
-Review with Sarah
+Review with Sarah***
 ```{r gof}
 ## Goodness of fit
 ## Pearson's X^2 statistic
 true <- df$Size # 'true' egg size values
 nn <- nrow(df) # number of observations
 X2 <- sum((true - yh)^2/yh)
-df <- nn-6 # 4 fixed effects, 2 random effects
+degf <- nn-6 # 4 fixed effects, 2 random effects
 
 ## likelihood ratio test
-pchisq(X2, df = 868, lower.tail = FALSE)
-# large p-value, cannot reject H_0
-```
-
-## Correlation among Random Effects
-```{r recorr}
-## get var(RE)
-(var_re_site <- as.data.frame(VarCorr(bm1)))
-
-## variance of random effects
-sigma2_alpha <- var_re_site$vcov[1]
-## variance of residuals
-sigma2_epsilon <- var_re_site$vcov[2]
-## calculate the correlation among RE's
-rho <- sigma2_alpha / (sigma2_alpha + sigma2_epsilon)
-round(rho, 2)
+pchisq(X2, df = degf, lower.tail = FALSE)
 ```
 
 ## Likelihood Ratio Tests
+Review with Sarah***
 ```{r likelihoodratio}
 ## Likelihood ratio tests  
 ## run model with plot RE only
 bm_plot <- lmer(Size ~ EggOrder + BEUTI + NPGO + ONI +  (1 | Plot), data = df)
+
 ## run model with obs RE only
 bm_obs <- lmer(Size ~ EggOrder + BEUTI + NPGO + ONI + (1 | Observer), data = df)
-## run model with both REs (same as top model) bm1
 
 ## conduct an LRT to see if the variance of the Obs RE is contributing useful info
 test_1 <- 2 * (logLik(bm1) - logLik(bm_obs))
@@ -390,7 +370,6 @@ for(i in 1:nb) { # repeat nb times
 
 ## calculate approximate p-value
 mean(LRT_boot > lambda)
-# none of the bootstrapped samples had a test statistic larger than the original value of lambda
 ```
 
 # Identifying Outliers
@@ -425,5 +404,20 @@ sample_size <- nrow(df)
 plot(cook, pch="*", cex=2, main="Influential Obs by Cooks distance")  # plot cook's distance
 abline(h = 4/sample_size, col="red")  # add cutoff line
 text(x=1:length(cook)+1, y=cook, labels=ifelse(cook>4/sample_size, names(cook),""), col="red")  # add labels
-
 ```
+
+# Confidence Intervals
+```{r conf}
+# predict values
+pred <- predict(bm1,re.form = NA)
+
+# Bootstrap CI
+boot <- bootMer(bm1, predict, nsim = 100, re.form = NA)
+std.err <- apply(boot$t, 2, sd)
+CI.lo <- pred - std.err*1.96
+CI.hi <- pred + std.err*1.96
+
+# Plot?
+```
+
+# Prediction
