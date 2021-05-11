@@ -233,7 +233,7 @@ These diagnostics are done for the first top model only but can be repeated for 
 ## extract predicted values and plot
 preds <- predict(bm1)
 ggplot() + 
-  geom_histogram(mapping = aes(preds)) + 
+  geom_histogram(mapping = aes(preds), bins = 10) + # set bins 
   theme_minimal()
 ```
 Since we assumed our data are normal, we want to see an approximately normal distribution of predicted values.
@@ -243,7 +243,7 @@ Since we assumed our data are normal, we want to see an approximately normal dis
 ## extract residuals and plot
 resids <- residuals(bm1)
 ggplot() + 
-  geom_histogram(mapping = aes(resids)) + 
+  geom_histogram(mapping = aes(resids), bins = 20) + 
   theme_minimal()
 ```
 Since we assumed our data are normal, we want to see an approximately normal distribution of residuals (differences between observed and predicted values of data).
@@ -254,6 +254,10 @@ Since we assumed our data are normal, we want to see an approximately normal dis
 coef(bm1) # this include fixed and random effects
 ranef_obs <- ranef(bm1)$Observer # observer random effect only
 ranef_pl <- ranef(bm1)$Plot # plot random effect only
+
+## look at data going into random effects
+table(df$Observer)
+table(df$Plot)
 ```
 We can extract our model coefficients (for fixed and random effects) and look at them. 
 
@@ -334,15 +338,15 @@ bm_plot <- lmer(Size ~ EggOrder + BEUTI + NPGO + ONI +  (1 | Plot), data = df)
 ## run model with obs RE only
 bm_obs <- lmer(Size ~ EggOrder + BEUTI + NPGO + ONI + (1 | Observer), data = df)
 
-## conduct an LRT to see if the variance of the Obs RE is contributing useful info
+## conduct an LRT to see if the variance of the Plot RE is contributing useful info
 test_1 <- 2 * (logLik(bm1) - logLik(bm_obs))
 pchisq(as.numeric(test_1), df = 1, lower.tail = FALSE)
-# There is support for inclusion of Obs as an RE
+# There is support for inclusion of Plot as an RE
 
-## check for contribution of Plot RE
+## check for contribution of Obs RE
 test_2 <- 2 * (logLik(bm1) - logLik(bm_plot))
 pchisq(as.numeric(test_2), df = 1, lower.tail = FALSE)
-# There is support for inclusion of Plot as an RE
+# There is support for inclusion of Obs as an RE
 
 ## Bootstrapping  to test for evidence against including multiple random effects in the same model
 ## set random seed 
