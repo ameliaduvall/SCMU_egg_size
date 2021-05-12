@@ -338,6 +338,10 @@ bm_plot <- lmer(Size ~ EggOrder + BEUTI + NPGO + ONI +  (1 | Plot), data = df)
 ## run model with obs RE only
 bm_obs <- lmer(Size ~ EggOrder + BEUTI + NPGO + ONI + (1 | Observer), data = df)
 
+bm_obs1 <- lmer(Size ~ EggOrder + BEUTI + NPGO + ONI + (1 | Observer), data = df, REML=FALSE)
+
+bm_null <- lm(Size ~ EggOrder + BEUTI + NPGO + ONI , data = df)
+
 ## conduct an LRT to see if the variance of the Plot RE is contributing useful info
 test_1 <- 2 * (logLik(bm1) - logLik(bm_obs))
 pchisq(as.numeric(test_1), df = 1, lower.tail = FALSE)
@@ -374,6 +378,20 @@ for(i in 1:nb) { # repeat nb times
 
 ## calculate approximate p-value
 mean(LRT_boot > lambda)
+
+
+install.packages("boot")
+library(boot)
+
+library(RLRsim)
+
+
+exactRLRT(bm_obs, bm1, bm_plot)
+
+exactRLRT(bm_plot, bm1, bm_obs)
+
+exactLRT(bm_obs1,bm_null)
+
 ```
 
 # Identifying Outliers
