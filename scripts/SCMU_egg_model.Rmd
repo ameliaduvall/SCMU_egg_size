@@ -341,7 +341,7 @@ bm1 <- lmer(Size ~ EggOrder + BEUTI + NPGO + ONI + (1 | Observer) + (1 | Plot), 
 bm_plot <- lmer(Size ~ EggOrder + BEUTI + NPGO + ONI +  (1 | Plot), data = SCMUdf, REML = TRUE)
 
 ## run model with obs RE only
-bm_obs <- lmer(Size ~ EggOrder + BEUTI + NPGO + ONI + (1 | Observer), data = SCMUdf, REML = TRUE)
+bm2 <- lmer(Size ~ EggOrder + BEUTI + NPGO + ONI + (1 | Observer), data = SCMUdf, REML = TRUE)
 
 bm_obs1 <- lmer(Size ~ EggOrder + BEUTI + NPGO + ONI + (1 | Observer), data = SCMUdf, REML = FALSE)
 
