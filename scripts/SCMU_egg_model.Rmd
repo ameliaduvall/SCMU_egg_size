@@ -40,6 +40,9 @@ SCMUdf <- left_join(egg, covars, by = "Year") %>%
   filter(TrueOrder == TRUE) %>% # egg order known only
   select(Year, Observer, Plot, Size, EggOrder, ANCHL, BEUTI, NPGO, ONI, PDO, SST) %>%
   as_tibble()
+
+###SJC ADDED 
+SCMUdf <- SCMUdf[-c(which(is.na(SCMUdf$Observer==TRUE))),]
 ```
 
 # Null Intercept-Only Model
@@ -384,9 +387,10 @@ for(i in 1:nb) { # repeat nb times
 ## calculate approximate p-value
 mean(LRT_boot > lambda)
 
-
-library(boot)
 library(RLRsim)
+
+#SJC ADDED 
+#based on a strict alpha = 0.05, we would keep plot (p ~ 0.004) but eliminate observer (p ~ 0.09). We can make a decision either way though... 
 
 exactRLRT(bm_obs, bm1, bm_plot)
 
@@ -444,4 +448,92 @@ CI.hi <- pred + std.err*1.96
 # Plot?
 ```
 
+
+
+```{r, modselection}
+
+##SJC added - here we are doing model selection and calculating Akaike weights 
+##model1
+bm1 <- lmer(Size ~ EggOrder + BEUTI + NPGO + ONI + (1 | Observer) + (1 | Plot), data = SCMUdf, REML = TRUE)
+##model2
+bm2 <- lmer(Size ~ EggOrder + ANCHL + BEUTI + ONI + (1 | Observer) + (1 | Plot), data = SCMUdf, REML = TRUE)
+##model3
+bm3 <- lmer(Size ~ EggOrder + ANCHL + BEUTI + SST + (1 | Observer) + (1 | Plot), data = SCMUdf, REML = TRUE)
+
+AIC.tab <- matrix(NA,nrow = 3, ncol = 3)
+AIC.tab[1,1] <- extractAIC(bm1)[2]
+AIC.tab[2,1] <- extractAIC(bm2)[2]
+AIC.tab[3,1] <- extractAIC(bm3)[2]
+AIC.tab[,2] <- AIC.tab[,1] - min(AIC.tab[,1])
+AIC.tab[,3] <- exp(-0.5*AIC.tab[,2])/(sum(exp(-0.5*AIC.tab[,2])))
+```
+
 # Prediction
+```{r predict}
+
+#we want predictions with all predictors but one held constant, and then we'll do this one-at-a-time for each of the predictors
+# this will allow us to produce nice plots looking at the marginal effect of each predictor 
+
+#first, set up a dataset with everything at its mean value (except EggOrder)
+set.seed(1)
+SCMU.null <- SCMUdf[c(1:200),]
+SCMU.null$EggOrder <- c(rep("Egg1",100),rep("Egg2",100))
+SCMU.null$BEUTI <- mean(SCMUdf$BEUTI) 
+SCMU.null$NPGO <- mean(SCMUdf$NPGO) 
+SCMU.null$ONI <- mean(SCMUdf$ONI) 
+SCMU.null$ANCHL <- mean(SCMUdf$ANCHL) 
+SCMU.null$PDO <- mean(SCMUdf$PDO)
+SCMU.null$SST <- mean(SCMUdf$SST)
+#I'm pretty sure you need some values of plot and observer but it doesn't matter which ones because we're not going to condition on these
+SCMU.null$Plot <- sample(SCMUdf$Plot,200,replace = TRUE)
+SCMU.null$Observer <- sample(SCMUdf$Observer,200,replace = TRUE)
+
+#then vary just one predictor at a time for prediction. For example, create the dataset SCMU.BEUTI that will be used for predictions where the only thing that values is BEUTI 
+SCMU.BEUTI <- SCMU.null
+SCMU.BEUTI$BEUTI <- rep(seq(from = min(SCMUdf$BEUTI),to = max(SCMUdf$BEUTI),length.out = 100),2)
+
+#PREDICT FOR SCMU.BEUTI
+#Pull together the random effects (do we want the models with )
+obs.sd.1 <- as.data.frame(VarCorr(bm1))$sdcor[1]
+plot.sd.1 <- as.data.frame(VarCorr(bm1))$sdcor[2]
+resid.sd.1 <- as.data.frame(VarCorr(bm1))$sdcor[3]
+obs.sd.2 <- as.data.frame(VarCorr(bm2))$sdcor[1]
+plot.sd.2 <- as.data.frame(VarCorr(bm2))$sdcor[2]
+resid.sd.2 <- as.data.frame(VarCorr(bm2))$sdcor[3]
+obs.sd.3 <- as.data.frame(VarCorr(bm3))$sdcor[1]
+plot.sd.3 <- as.data.frame(VarCorr(bm3))$sdcor[2]
+resid.sd.3 <- as.data.frame(VarCorr(bm3))$sdcor[3]
+sims <- 1000
+pv <- matrix(nrow = sims, ncol = nrow(SCMU.BEUTI))
+for(i in 1:sims){
+  #choose a model 
+  model <- which(rmultinom(n = 1, size = 1,prob = c(AIC.tab[,3]))==1)
+  if(model == 1){
+    #we simulate conditioning on no specific random effects levels
+    y <- unlist(simulate(bm1))
+    bmod <- refit(bm1,y)
+    pv[i,] <- predict(bmod, re.form = ~0, newdata = SCMU.BEUTI) + rnorm(1,0,sd=obs.sd.1) + rnorm(1,0,sd=plot.sd.1) + rnorm(1,0,sd=resid.sd.1)
+  }
+  if(model == 2){
+    #we simulate conditioning on no specific random effects levels
+    y <- unlist(simulate(bm2))
+    bmod <- refit(bm2,y)
+    pv[i,] <- predict(bmod, re.form = ~0, newdata = SCMU.BEUTI) + rnorm(1,0,sd=obs.sd.2) + rnorm(1,0,sd=plot.sd.2) + rnorm(1,0,sd=resid.sd.2)
+  }
+  if(model == 3){
+    #we simulate conditioning on no specific random effects levels
+    y <- unlist(simulate(bm3))
+    bmod <- refit(bm3,y)
+    pv[i,] <- predict(bmod, re.form = ~0, newdata = SCMU.BEUTI) + rnorm(1,0,sd=obs.sd.3) + rnorm(1,0,sd=plot.sd.3) + rnorm(1,0,sd=resid.sd.3)
+  }
+}  
+
+##SJC added - you can do plots like this of the predictions and 95% CIs against the individual predictors 
+plot(SCMU.BEUTI$BEUTI[1:100],y = apply(pv,2,mean)[1:100],xlab = "Anchovy",ylab = "Egg Size",type = "l",ylim = c(1500,2500))
+lines(SCMU.BEUTI$BEUTI[1:100],y = apply(pv,2,function(x)quantile(x,probs= 0.025))[1:100],lty=2)
+lines(SCMU.BEUTI$BEUTI[1:100],y = apply(pv,2,function(x)quantile(x,probs= 0.975))[1:100],lty=2)
+  
+```
+
+
+
