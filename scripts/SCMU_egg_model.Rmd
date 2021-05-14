@@ -23,28 +23,30 @@ library(sjPlot)
 This is `r paste0("v.", (Sys.Date()))`
 
 #TODO
-- Calculate confidence intervals
-- Prediction
+- Test lag on environmental covariates
+- Model averaging prediction for top 3 models
+- 
 
 # Introduction
 This document details steps taken to model Scripps's Murrelet (*Synthliboramphus scrippsi*) egg size at Santa Barbara Island within Channel Islands National Park from 2009-2017.  
 
 # Load and format data 
 ```{r data}
-egg <- read_csv(here("data", "SCMU_egg_data.csv"))
-covars <- read_csv(here("data", "covariates", "covars.csv"))
+egg <- read.csv(here("data", "SCMU_egg_data.csv")) 
+covars <- read.csv(here("data", "covariates", "covars.csv"))
 
 ## join covariate data with egg data by year
-df <- left_join(egg, covars, by = "Year") %>%
+SCMUdf <- left_join(egg, covars, by = "Year") %>%
   filter(TrueOrder == TRUE) %>% # egg order known only
-  select(Year, Observer, Plot, Size, EggOrder, ANCHL, BEUTI, NPGO, ONI, PDO, SST)
+  select(Year, Observer, Plot, Size, EggOrder, ANCHL, BEUTI, NPGO, ONI, PDO, SST) %>%
+  as_tibble()
 ```
 
 # Null Intercept-Only Model
 This model includes observer and plot as random effects, but does not include any covariates.
 ```{r null_model}
 ## run model
-nm <- lmer(Size ~ 1 + (1 | Observer) + (1 | Plot), data = df)
+nm <- lmer(Size ~ 1 + (1 | Observer) + (1 | Plot), data = SCMUdf, REML = TRUE)
 
 ## look at model output and estimates
 sumary(nm)
@@ -94,7 +96,7 @@ abline(h=0, lty = "dashed")
 This model includes observer and plot as random effects and egg order as a fixed effect. 
 ```{r egg_model}
 ## run the model
-order.mod <- lmer(Size ~ EggOrder + (1 | Observer) + (1 | Plot), data = df)
+order.mod <- lmer(Size ~ EggOrder + (1 | Observer) + (1 | Plot), data = SCMUdf, REML = TRUE)
 
 ## look at model summary and estimates
 sumary(order.mod)
@@ -109,7 +111,7 @@ ranef(order.mod)
 predictors <- as.data.frame(matrix(c(FALSE, TRUE), 2, 7)) # 7 potential predictors (includes EggOrder)
 
 ## add column names
-cov_names <- colnames(predictors) <- colnames(df[,5:11])
+cov_names <- colnames(predictors) <- colnames(SCMUdf[,5:11])
 
 ## create set of all possible combinations
 full_set <- expand.grid(predictors) # 128 combinations
@@ -139,7 +141,7 @@ for(i in 1:n_mods) {
   } else {
     fmla <- paste("Size ~ (1 | Observer) + (1 | Plot) +", paste(cov_names[use_set[i,]], collapse = " + "))
   }
-  mod_fit <- lmer(as.formula(fmla), data = df)
+  mod_fit <- lmer(as.formula(fmla), data = SCMUdf, REML = TRUE)
   mod_res[i,"AIC"] <- AIC(mod_fit)
   mod_res[i,"BIC"] <- BIC(mod_fit) 
 }
@@ -189,7 +191,7 @@ Here we look at the top three competitive models.
 ## First Top Model
 ```{r bestmod1}
 ##run model
-bm1 <- lmer(Size ~ EggOrder + BEUTI + NPGO + ONI + (1 | Observer) + (1 | Plot), data = df)
+bm1 <- lmer(Size ~ EggOrder + BEUTI + NPGO + ONI + (1 | Observer) + (1 | Plot), data = SCMUdf, REML = TRUE)
 ## look at model output and estimates
 summary(bm1)
 coef(bm1)
@@ -201,7 +203,7 @@ model.matrix(bm1)
 ## Second Top Model
 ```{r bestmod2}
 ##run model
-bm2 <- lmer(Size ~ EggOrder + ANCHL + BEUTI + ONI + (1 | Observer) + (1 | Plot), data = df)
+bm2 <- lmer(Size ~ EggOrder + ANCHL + BEUTI + ONI + (1 | Observer) + (1 | Plot), data = SCMUdf, REML = TRUE)
 
 ## look at model output and estimates
 summary(bm2)
@@ -214,7 +216,7 @@ model.matrix(bm2)
 ## Third Top Model
 ```{r bestmod3}
 ##run model
-bm3 <- lmer(Size ~ EggOrder + ANCHL + BEUTI + SST + (1 | Observer) + (1 | Plot), data = df)
+bm3 <- lmer(Size ~ EggOrder + ANCHL + BEUTI + SST + (1 | Observer) + (1 | Plot), data = SCMUdf, REML = TRUE)
 
 ## look at model output and estimates
 summary(bm3)
@@ -256,8 +258,8 @@ ranef_obs <- ranef(bm1)$Observer # observer random effect only
 ranef_pl <- ranef(bm1)$Plot # plot random effect only
 
 ## look at data going into random effects
-table(df$Observer)
-table(df$Plot)
+table(SCMUdf$Observer)
+table(SCMUdf$Plot)
 ```
 We can extract our model coefficients (for fixed and random effects) and look at them. 
 
@@ -319,8 +321,8 @@ Review with Sarah***
 ```{r gof}
 ## Goodness of fit
 ## Pearson's X^2 statistic
-true <- df$Size # 'true' egg size values
-nn <- nrow(df) # number of observations
+true <- SCMUdf$Size # 'true' egg size values
+nn <- nrow(SCMUdf) # number of observations
 X2 <- sum((true - yh)^2/yh)
 degf <- nn-6 # 4 fixed effects, 2 random effects
 
@@ -332,15 +334,18 @@ pchisq(X2, df = degf, lower.tail = FALSE)
 Review with Sarah***
 ```{r likelihoodratio}
 ## Likelihood ratio tests  
+## top model
+bm1 <- lmer(Size ~ EggOrder + BEUTI + NPGO + ONI + (1 | Observer) + (1 | Plot), data = SCMUdf, REML = TRUE)
+
 ## run model with plot RE only
-bm_plot <- lmer(Size ~ EggOrder + BEUTI + NPGO + ONI +  (1 | Plot), data = df)
+bm_plot <- lmer(Size ~ EggOrder + BEUTI + NPGO + ONI +  (1 | Plot), data = SCMUdf, REML = TRUE)
 
 ## run model with obs RE only
-bm_obs <- lmer(Size ~ EggOrder + BEUTI + NPGO + ONI + (1 | Observer), data = df)
+bm_obs <- lmer(Size ~ EggOrder + BEUTI + NPGO + ONI + (1 | Observer), data = SCMUdf, REML = TRUE)
 
-bm_obs1 <- lmer(Size ~ EggOrder + BEUTI + NPGO + ONI + (1 | Observer), data = df, REML=FALSE)
+bm_obs1 <- lmer(Size ~ EggOrder + BEUTI + NPGO + ONI + (1 | Observer), data = SCMUdf, REML = FALSE)
 
-bm_null <- lm(Size ~ EggOrder + BEUTI + NPGO + ONI , data = df)
+bm_null <- lm(Size ~ EggOrder + BEUTI + NPGO + ONI , data = SCMUdf)
 
 ## conduct an LRT to see if the variance of the Plot RE is contributing useful info
 test_1 <- 2 * (logLik(bm1) - logLik(bm_obs))
@@ -357,7 +362,7 @@ pchisq(as.numeric(test_2), df = 1, lower.tail = FALSE)
 set.seed(514)
 
 ## fit null model with no RE's 
-nbm <- lm(Size ~ EggOrder + BEUTI + NPGO + ONI, data = df)
+nbm <- lm(Size ~ EggOrder + BEUTI + NPGO + ONI, data = SCMUdf)
 
 ## calculate likelihood ratio (difference in log-likelihood)
 lambda <- 2 * (logLik(bm1) - logLik(nbm))
@@ -371,8 +376,8 @@ LRT_boot <- rep(NA, nb)
 ## bootstrapping
 for(i in 1:nb) { # repeat nb times
   sim_data <- unlist(simulate(nbm)) # simulate data from null model
-  m_null <- lm(sim_data ~ EggOrder + BEUTI + NPGO + ONI, data = df) # fit null model to sim data 
-  m_alt <- lmer(sim_data ~ EggOrder + BEUTI + NPGO + ONI + (1 | Observer) + (1 | Plot), data = df) # fit RE model
+  m_null <- lm(sim_data ~ EggOrder + BEUTI + NPGO + ONI, data = SCMUdf) # fit null model to sim data 
+  m_alt <- lmer(sim_data ~ EggOrder + BEUTI + NPGO + ONI + (1 | Observer) + (1 | Plot), data = SCMUdf, REML = TRUE) # fit RE model
   LRT_boot[i] <- as.numeric(2*(logLik(m_alt) - logLik(m_null))) # calculate likelihood ratio 
 } # boundary (singular) fit: see ?isSingular
 
@@ -380,11 +385,8 @@ for(i in 1:nb) { # repeat nb times
 mean(LRT_boot > lambda)
 
 
-install.packages("boot")
 library(boot)
-
 library(RLRsim)
-
 
 exactRLRT(bm_obs, bm1, bm_plot)
 
@@ -403,7 +405,7 @@ Calculate the studentized residuals to look for outliers
 (stud_e <- rstudent(bm1))
 
 ## get sample size
-n <- nrow(df)
+n <- nrow(SCMUdf)
 
 ## Bonferroni correction: alpha/n
 alpha <- 0.05/n
@@ -422,7 +424,7 @@ sum(stud_e > t_crit, na.rm = TRUE)
 cook <- cooks.distance(bm1)
 
 # Plot the Cook's Distance using the traditional 4/n criterion
-sample_size <- nrow(df)
+sample_size <- nrow(SCMUdf)
 plot(cook, pch="*", cex=2, main="Influential Obs by Cooks distance")  # plot cook's distance
 abline(h = 4/sample_size, col="red")  # add cutoff line
 text(x=1:length(cook)+1, y=cook, labels=ifelse(cook>4/sample_size, names(cook),""), col="red")  # add labels
