@@ -38,7 +38,7 @@ Historical data here: https://www.ndbc.noaa.gov/station_history.php?station=4602
 Data descriptions here: https://www.ndbc.noaa.gov/measdes.shtml  
 Data pulled from: https://www.integratedecosystemassessment.noaa.gov/regions/california-current/cc-indicator-status-trends
 ```{r sst}
-SSTraw <- read.csv(here("data", "covariates", "cciea_OC_SST3_91cf_d165_213f-46025.csv"))
+SSTraw <- read_csv(here("data", "covariates", "cciea_OC_SST3_91cf_d165_213f-46025.csv"))
 
 ## for January-June only
 SST <- SSTraw %>%
@@ -53,7 +53,7 @@ SST <- SSTraw %>%
   dplyr::select(Year, SST) %>%
   filter(Year >= 2009 & Year <= 2017) %>%
   arrange(Year) %>%
-  as.tibble()
+  as_tibble()
 
 # ## load annual files
 # wx2009 <- read_csv(here("data", "covariates", "buoy_46025_2009_wx.csv"), na = c("999")) %>%
@@ -109,7 +109,7 @@ SST <- SSTraw %>%
 #   summarise(SST = mean(WTMP, na.rm = TRUE)) %>%
 #   filter(Year >= 2009 & Year <= 2017) %>%
 #   arrange(Year) %>%
-#   as.tibble()
+#   as_tibble()
 # 
 # ## create mean sst for Jan-May
 # SST <- SSTraw %>%
@@ -120,7 +120,7 @@ SST <- SSTraw %>%
 #   summarise(SST = mean(WTMP, na.rm = TRUE)) %>%
 #   filter(Year >= 2009 & Year <= 2017) %>%
 #   arrange(Year) %>%
-#   as.tibble()
+#   as_tibble()
 ```
 
 Buoy 46215  
@@ -138,7 +138,7 @@ https://swfsc.noaa.gov/textblock.aspx?Division=FED&ParentMenuId=54&id=20615
 Institution: NOAA SWFSC\
 Dataset summary: Dr. John Field (NOAA; john.field@noaa.gov), from Rockfish Recruitment and Ecosystem Assessment Survey; Samples represent catch (individuals) per standard 15 minute trawl (CPUE). Data are log(CPUE+1) transformed. Geometric means calculated on non-zero data.\ 
 ```{r anchovya}
-ANCHAraw <- read.csv(here("data", "covariates", "cciea_EI_FBC_09ec_5398_9325.csv"))
+ANCHAraw <- read_csv(here("data", "covariates", "cciea_EI_FBC_09ec_5398_9325.csv"))
 
 ANCHA <- ANCHAraw %>%
   slice(-1) %>%
@@ -148,7 +148,7 @@ ANCHA <- ANCHAraw %>%
   dplyr::select(Year, ANCHA) %>%
   filter(Year >= 2009 & Year <= 2017) %>%
   arrange(Year) %>%
-  as.tibble()
+  as_tibble()
 ```
 
 ### Larval anchovy - SCC 
@@ -157,8 +157,8 @@ CalCOFI lines 76.7 - 93.3; stations 28.0 - 120/0
 
 Note: No data available for 2017 (check why)  
 ```{r anchovyl}
-# ANCHLraw  <- read.csv(here("data", "covariates", "cciea_EI_FBS_a29e_1fd0_409d.csv"), na.strings = "NaN")
-ANCHLraw  <- read.csv(here("data", "covariates", "cciea_EI_FBS_2020_a29e_1fd0_409d.csv"), na.strings = "NaN")
+# ANCHLraw  <- read_csv(here("data", "covariates", "cciea_EI_FBS_a29e_1fd0_409d.csv"), na.strings = "NaN")
+ANCHLraw  <- read_csv(here("data", "covariates", "cciea_EI_FBS_2020_a29e_1fd0_409d.csv"), na.strings = "NaN")
   
 ANCHL <- ANCHLraw %>%
   slice(-1) %>%
@@ -168,7 +168,7 @@ ANCHL <- ANCHLraw %>%
   dplyr::select(Year, ANCHL) %>%
   filter(Year >= 2009 & Year <= 2017) %>%
   arrange(Year) %>%
-  as.tibble()
+  as_tibble()
 ```
 
 ### Krill - CCC (1990-2019)
@@ -176,7 +176,7 @@ Institution: NOAA SWFSC
 More information:
 Dataset summary: Dr. John Field (NOAA; john.field@noaa.gov) from the SWFSC Rockfish Recruitment and Ecosystem Assessment Survey (https://swfsc.noaa.gov/textblock.aspx?Division=FED&ParentMenuId=54&id=20615). Samples represent catch (individuals) per standard 15 minute trawl (CPUE). Data are log(CPUE+1) transformed; Geometric means calculated on non-zero data.
 ```{r krill}
-KRILLraw <- read.csv(here("data", "covariates", "cciea_EI_FBC_3c3a_8819_d95c.csv"))
+KRILLraw <- read_csv(here("data", "covariates", "cciea_EI_FBC_3c3a_8819_d95c.csv"))
 
 KRILL <- KRILLraw %>%
   slice(-1) %>%
@@ -186,7 +186,7 @@ KRILL <- KRILLraw %>%
   dplyr::select(Year, KRILL) %>%
   filter(Year >= 2009 & Year <= 2017) %>%
   arrange(Year) %>%
-  as.tibble()
+  as_tibble()
 ```
 
 ## Large-scale Oceanographic Indicators
@@ -196,7 +196,7 @@ Summary: UW/JISAO (http://research.jisao.washington.edu/pdo/PDO.latest.txt) The 
 Institution: University of Washington, Joint Institute for the Study of the Atmosphere and Ocean (JISAO)\
 Time span: 1900-01-01T00:00:00Z - 2020-04-01T00:00:00Z\
 ```{r PDO}
-PDOraw <- read.csv(here("data", "covariates", "cciea_OC_PDO_712b_5843_9069.csv"))
+PDOraw <- read_csv(here("data", "covariates", "cciea_OC_PDO_712b_5843_9069.csv"))
 
 PDO_full <- PDOraw %>%
   slice(-1) %>%
@@ -208,7 +208,7 @@ PDO_full <- PDOraw %>%
   dplyr::select(Year, PDO) %>%
   filter(Year >= 2009 & Year <= 2017) %>%
   arrange(Year) %>%
-  as.tibble()
+  as_tibble()
 
 ## for January-June only
 PDO <- PDOraw %>%
@@ -223,7 +223,7 @@ PDO <- PDOraw %>%
   dplyr::select(Year, PDO) %>%
   filter(Year >= 2009 & Year <= 2017) %>%
   arrange(Year) %>%
-  as.tibble()
+  as_tibble()
 ```
 
 ### Oceanic Nino Index
@@ -231,7 +231,7 @@ Summary: NOAA/CPC (http://origin.cpc.ncep.noaa.gov/products/analysis_monitoring/
 Institution: NOAA, Climate Prediction Center (CPC)\
 Time span: 1950-01-01T00:00:00Z - 2020-03-01T00:00:00Z\
 ```{r ONI}
-ONIraw <- read.csv(here("data", "covariates", "cciea_OC_ONI_712b_5843_9069.csv"))
+ONIraw <- read_csv(here("data", "covariates", "cciea_OC_ONI_712b_5843_9069.csv"))
 
 ONI_full <- ONIraw %>%
   slice(-1) %>%
@@ -243,7 +243,7 @@ ONI_full <- ONIraw %>%
   dplyr::select(Year, ONI) %>%
   filter(Year >= 2009 & Year <= 2017) %>%
   arrange(Year) %>%
-  as.tibble()
+  as_tibble()
 
 ## for January-June only
 ONI <- ONIraw %>%
@@ -258,7 +258,7 @@ ONI <- ONIraw %>%
   dplyr::select(Year, ONI) %>%
   filter(Year >= 2009 & Year <= 2017) %>%
   arrange(Year) %>%
-  as.tibble()
+  as_tibble()
 ```
 
 ### North Pacific Gyre Oscillation Index
@@ -268,7 +268,7 @@ Time span: 1950-01-01T00:00:00Z - 2019-07-01T00:00:00Z\
 This article also explains NPGO well: http://www.o3d.org/npgo/
 See also this paper: https://agupubs.onlinelibrary.wiley.com/doi/pdf/10.1029/2011GL049966
 ```{r NPGO}
-NPGOraw <- read.csv(here("data", "covariates", "cciea_OC_NPGO_712b_5843_9069.csv"))
+NPGOraw <- read_csv(here("data", "covariates", "cciea_OC_NPGO_712b_5843_9069.csv"))
 
 NPGO_full <- NPGOraw %>%
   slice(-1) %>%
@@ -280,7 +280,7 @@ NPGO_full <- NPGOraw %>%
   dplyr::select(Year, NPGO) %>%
   filter(Year >= 2009 & Year <= 2017) %>%
   arrange(Year) %>%
-  as.tibble()
+  as_tibble()
 
 ## for December-March only
 NPGO <- NPGOraw %>%
@@ -308,7 +308,7 @@ Summary: CUTI is a new upwelling index that leverages state-of-the-art ocean mod
 Institution: NOAA/SWFSC/ERD\
 Time span: 1988-01-01T00:00:00Z - 2020-04-01T00:00:00Z\
 ```{r CUTI}
-CUTIraw <- read.csv(here("data", "covariates", "cciea_OC_CUTI_784c_ef9f_af6f.csv"))
+CUTIraw <- read_csv(here("data", "covariates", "cciea_OC_CUTI_784c_ef9f_af6f.csv"))
 
 CUTI <- CUTIraw %>%
   slice(-1) %>%
@@ -320,7 +320,7 @@ CUTI <- CUTIraw %>%
   dplyr::select(Year, CUTI) %>%
   filter(Year >= 2009 & Year <= 2017) %>%
   arrange(Year) %>%
-  as.tibble()
+  as_tibble()
 ```
 
 ### Traditional Bakun 
@@ -330,7 +330,7 @@ Values are daily average of wind-driven crossshore transports computed from FNMO
 value.  Positive numbers indicate offshore transport.  Day is based on PST.
 The Bakun Index uses sea level pressure fields from an atmospheric reanalysis to derive estimated near-surface winds, while CUTI and BEUTI use winds directly from atmospheric reanalyses that assimilate satellite and in situ wind measurements.
 ```{r bakun}
-BAKUNraw <- read.csv(here("data", "covariates", "bakun.csv"), na.strings = "-9999")
+BAKUNraw <- read_csv(here("data", "covariates", "bakun.csv"), na.strings = "-9999")
 
 BAKUN <- BAKUNraw %>%
   mutate(Date = mdy(Date)) %>%
@@ -341,7 +341,7 @@ BAKUN <- BAKUNraw %>%
   dplyr::select(Year, BAKUN) %>%
   filter(Year >= 2009 & Year <= 2017) %>%
   arrange(Year) %>%
-  as.tibble()
+  as_tibble()
 ```
 
 ### Biologically Effective Upwelling Transport Index (39N)
@@ -352,7 +352,7 @@ Time span: 1988-01-01T00:00:00Z - 2020-04-01T00:00:00Z
 
 Note: Check Latitude (39)
 ```{r BEUTI}
-BEUTIraw <- read.csv(here("data", "covariates", "cciea_OC_BEUTI_784c_ef9f_af6f.csv"))
+BEUTIraw <- read_csv(here("data", "covariates", "cciea_OC_BEUTI_784c_ef9f_af6f.csv"))
 
 BEUTI_full <- BEUTIraw %>%
   slice(-1) %>%
@@ -364,7 +364,7 @@ BEUTI_full <- BEUTIraw %>%
   dplyr::select(Year, BEUTI) %>%
   filter(Year >= 2009 & Year <= 2017) %>%
   arrange(Year) %>%
-  as.tibble()
+  as_tibble()
 
 ## for January-June only
 BEUTI <- BEUTIraw %>%
@@ -379,7 +379,7 @@ BEUTI <- BEUTIraw %>%
   dplyr::select(Year, BEUTI) %>%
   filter(Year >= 2009 & Year <= 2017) %>%
   arrange(Year) %>%
-  as.tibble()
+  as_tibble()
 ```
 
 # Final Covariates
