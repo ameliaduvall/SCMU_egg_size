@@ -53,16 +53,21 @@ main <- ggplot() +
   geom_sf_label_repel(data = plots_sf, 
                      aes(label = Plot_Name, geometry = geometry, fontface = "bold"), 
                      box.padding = 1) + 
+  coord_sf() +
   xlim(x.min, x.max) +
   ylim(y.min, y.max) +
   xlab("Longitude") + ylab("Latitude") +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 90)) +
-  scalebar(data = NULL, dist = 5, dist_unit = "km",
-           transform = FALSE, st.size = 2, 
-           x.min = 90000, x.max = 91000,
-           y.min = -505000, y.max = -505500,
-           anchor = c(x = 90000, y = -505000)) # can't get scalebar or north arrow to work!
+  scalebar(data = NULL, dist = 250, dist_unit = "m",
+           transform = FALSE, st.size = 3, height = 0.2, st.dist = 0.2,
+           x.min = 90000, x.max = 92000,
+           y.min = -505600, y.max = -505200,
+           anchor = c(x = 91000, y = -505400)) +
+  north(data = NULL, scale = 1, symbol = 10, 
+        x.min = 90000, x.max = 92000,
+        y.min = -505600, y.max = -505200,
+        anchor = c(x = 91800, y = -504900))
 main
 
 ## output map
