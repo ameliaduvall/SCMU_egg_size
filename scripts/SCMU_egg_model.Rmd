@@ -529,7 +529,7 @@ for(i in 1:sims){
 }  
 
 ##SJC added - you can do plots like this of the predictions and 95% CIs against the individual predictors 
-plot(SCMU.BEUTI$BEUTI[1:100],y = apply(pv,2,mean)[1:100],xlab = "Anchovy",ylab = "Egg Size",type = "l",ylim = c(1500,2500))
+plot(SCMU.BEUTI$BEUTI[1:100],y = apply(pv,2,mean)[1:100],xlab = "BEUTI",ylab = "Egg Size",type = "l",ylim = c(1500,2500))
 lines(SCMU.BEUTI$BEUTI[1:100],y = apply(pv,2,function(x)quantile(x,probs= 0.025))[1:100],lty=2)
 lines(SCMU.BEUTI$BEUTI[1:100],y = apply(pv,2,function(x)quantile(x,probs= 0.975))[1:100],lty=2)
   
