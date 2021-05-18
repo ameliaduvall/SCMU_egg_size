@@ -202,7 +202,7 @@ BEUTI_nolag_AIC - BEUTI_lag_AIC
 ```
 There is more support for a one-year lagged BEUTI from January-June. 
 
-Compare full one-year lagged BEUTI versus half one-year lagged BEUTI.
+Just to check, let's compare a full one-year lagged BEUTI versus half one-year lagged BEUTI.
 ```{r BEUTI3}
 ## one year lag, all 12 months
 BEUTI_full_lag <- BEUTIraw %>%
@@ -261,11 +261,26 @@ BEUTI_full_lag_AIC - BEUTI_half_lag_AIC
 Both models are supported (which is what we would expect based on the first two tests).
 
 ## SST
-```{r sst}
+First, we tested against using data from the entire year versus from January-June. 
+```{r sst1}
 SSTraw <- read_csv(here("data", "covariates", "cciea_OC_SST3_91cf_d165_213f-46025.csv"))
 
-## for January-June only
-SST <- SSTraw %>%
+## Averaged over all 12 months
+SST_full <- SSTraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time),
+         Month = month(time)) %>%
+  mutate(sst = as.numeric(SST)) %>%
+  group_by(Year) %>%
+  summarise(SST = mean(sst, na.rm = TRUE)) %>%
+  dplyr::select(Year, SST) %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  mutate(SST_full = scale(SST)) %>%
+  arrange(Year) 
+
+## Averaged for January-June only
+SST_half <- SSTraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
   mutate(Year = year(time),
@@ -276,9 +291,85 @@ SST <- SSTraw %>%
   summarise(SST = mean(sst, na.rm = TRUE)) %>%
   dplyr::select(Year, SST) %>%
   filter(Year >= 2009 & Year <= 2017) %>%
-  arrange(Year) %>%
-  as_tibble()
+  mutate(SST_half = scale(SST)) %>%
+  arrange(Year) 
+
+## join 2 datasets together
+SST1 <- full_join(SST_full, SST_half, by = "Year")
+
+## join with egg size data
+SSTdf1 <- left_join(egg, SST1, by = "Year")
+
+## run models
+SST_full_mod <- lmer(Size ~ SST_full + (1 | Plot), data = SSTdf1) 
+SST_half_mod <- lmer(Size ~ SST_half + (1 | Plot), data = SSTdf1)
+
+## compare AIC
+SST_full_AIC <- AIC(SST_full_mod)
+SST_half_AIC <- AIC(SST_half_mod)
+
+## True or False, is the Jan-Jun SST model AIC smaller than the SST full AIC?
+SST_half_AIC < SST_full_AIC
+
+## What is the delta AIC?
+SST_full_AIC - SST_half_AIC
 ```
+The full SST model has slightly more support.
+
+Then, using the top model, we tested a non-lagged versus one-year lagged dataset.
+```{r SST2}
+## no lag, averaged for 12 months (same as SST_full above)
+SST_nolag <- SSTraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time),
+         Month = month(time)) %>%
+  mutate(sst = as.numeric(SST)) %>%
+  group_by(Year) %>%
+  summarise(SST = mean(sst, na.rm = TRUE)) %>%
+  dplyr::select(Year, SST) %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  mutate(SST_nolag = scale(SST)) %>%
+  arrange(Year) 
+
+## one year lag, averaged for 12 months
+SST_lag <- SSTraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time),
+         Month = month(time)) %>%
+  mutate(sst = as.numeric(SST)) %>%
+  group_by(Year) %>%
+  summarise(SST = mean(sst, na.rm = TRUE)) %>%
+  dplyr::select(Year, SST) %>%
+  filter(Year >= 2008 & Year <= 2016) %>%
+  mutate(SST_lag = scale(SST),
+         TrueYear = Year,
+         Year = TrueYear + 1) %>%
+  arrange(Year) %>%
+  dplyr::select(Year, SST_lag)
+
+## join 2 datasets together
+SST2 <- full_join(SST_nolag, SST_lag, by = "Year")
+
+## join with egg size data
+SSTdf2 <- left_join(egg, SST2, by = "Year")
+  
+## run models
+SST_nolag_mod <- lmer(Size ~ SST_nolag + (1 | Plot), data = SSTdf2) 
+SST_lag_mod <- lmer(Size ~ SST_lag + (1 | Plot), data = SSTdf2)
+
+## compare AIC
+SST_nolag_AIC <- AIC(SST_nolag_mod)
+SST_lag_AIC <- AIC(SST_lag_mod)
+
+## True or False, is the no lag SST model AIC smaller than the SST lag AIC?
+SST_nolag_AIC < SST_lag_AIC
+
+## What is the delta AIC?
+SST_nolag_AIC - SST_lag_AIC
+```
+The non-lagged SST data has more support.
 
 ## NPGO
 ```{r NPGO}
