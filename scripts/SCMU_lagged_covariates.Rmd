@@ -29,7 +29,8 @@ We tested 6 covariates:
 1. Larval anchovy - SCC (ANCHL)  
 2. Biologically Effective Upwelling Transport Index (BEUTI)  
 3. Sea Surface Temperature (SST)  
-4. North Pacific Gyre Oscillation Index (NPGO)  5. Pacific Decadal Oscillation Index (PDO)  
+4. North Pacific Gyre Oscillation Index (NPGO)  
+5. Pacific Decadal Oscillation Index (PDO)  
 6. Oceanic Nino Index (ONI)  
 
 See SCMU_egg_covariates.Rmd for more information on covariate sourcing.  
@@ -206,6 +207,7 @@ There is more support for a one-year lagged BEUTI from January-June.
 Just to check, let's compare a full one-year lagged BEUTI versus half one-year lagged BEUTI.
 ```{r BEUTI3}
 ## one year lag, all 12 months
+
 BEUTI_full_lag <- BEUTIraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
@@ -258,6 +260,7 @@ BEUTI_half_lag_AIC < BEUTI_full_lag_AIC
 
 ## What is the delta AIC?
 BEUTI_full_lag_AIC - BEUTI_half_lag_AIC
+
 ```
 Both models are supported (which is what we would expect based on the first two tests). There is support to use 12-month averaged lagged data OR 6-month averaged lagged data for BEUTI. 
 
@@ -457,6 +460,63 @@ NPGO_delay_AIC - NPGO_full_AIC
 ```
 The model that used all data from 12 months averaged for NPGO had the best fit. 
 
+Then, using the full NPGO model, we tested a non-lagged versus one-year lagged dataset.
+```{r NPGO2}
+## no lag, averaged for 12 months (same as NPGO_full above)
+NPGO_nolag <- NPGOraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time)) %>%
+  mutate(npgo = as.numeric(NPGO)) %>%
+  group_by(Year) %>%
+  summarise(NPGO = mean(npgo, na.rm = TRUE)) %>%
+  dplyr::select(Year, NPGO) %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  mutate(NPGO_nolag = scale(NPGO)) %>%
+  arrange(Year) %>%
+  as_tibble()
+
+## one year lag, averaged for 12 months
+NPGO_lag <- NPGOraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time),
+         Month = month(time)) %>%
+  mutate(npgo = as.numeric(NPGO)) %>%
+  group_by(Year) %>%
+  summarise(NPGO = mean(npgo, na.rm = TRUE)) %>%
+  dplyr::select(Year, NPGO) %>%
+  filter(Year >= 2008 & Year <= 2016) %>%
+  mutate(NPGO_lag = scale(NPGO),
+         TrueYear = Year,
+         Year = TrueYear + 1) %>%
+  arrange(Year) %>%
+  dplyr::select(Year, NPGO_lag)
+
+## join 2 datasets together
+NPGO2 <- full_join(NPGO_nolag, NPGO_lag, by = "Year")
+
+## join with egg size data
+NPGOdf2 <- left_join(egg, NPGO2, by = "Year")
+  
+## run models
+NPGO_nolag_mod <- lmer(Size ~ NPGO_nolag + (1 | Plot), data = NPGOdf2) 
+NPGO_lag_mod <- lmer(Size ~ NPGO_lag + (1 | Plot), data = NPGOdf2)
+
+## compare AIC
+NPGO_nolag_AIC <- AIC(NPGO_nolag_mod)
+NPGO_lag_AIC <- AIC(NPGO_lag_mod)
+
+## True or False, is the no lag NPGO model AIC smaller than the NPGO lag AIC?
+NPGO_nolag_AIC < NPGO_lag_AIC
+
+## What is the delta AIC?
+NPGO_nolag_AIC - NPGO_lag_AIC
+```
+The non-lagged NPGO data has more support. There is support for a non-lagged NPGO data from the entire year (12 months). 
+
+
+
 ## PDO
 ```{r PDO}
 PDOraw <- read_csv(here("data", "covariates", "cciea_OC_PDO_712b_5843_9069.csv"))
@@ -470,11 +530,12 @@ PDO_full <- PDOraw %>%
   summarise(PDO = mean(pdo, na.rm = TRUE)) %>%
   dplyr::select(Year, PDO) %>%
   filter(Year >= 2009 & Year <= 2017) %>%
+   mutate(PDO_full = scale(PDO)) %>%
   arrange(Year) %>%
   as_tibble()
 
 ## for January-June only
-PDO <- PDOraw %>%
+PDO_half <- PDOraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
   mutate(Year = year(time),
@@ -485,9 +546,89 @@ PDO <- PDOraw %>%
   summarise(PDO = mean(pdo, na.rm = TRUE)) %>%
   dplyr::select(Year, PDO) %>%
   filter(Year >= 2009 & Year <= 2017) %>%
+  mutate(PDO_half= scale(PDO)) %>%
   arrange(Year) %>%
   as_tibble()
+
+## join 2 datasets together
+PDO1 <- full_join(PDO_full, PDO_half, by = "Year")
+
+## join with egg size data
+PDOdf1 <- left_join(egg, PDO1, by = "Year")
+
+## run models
+PDO_full_mod <- lmer(Size ~ PDO_full + (1 | Plot), data = PDOdf1) 
+PDO_half_mod <- lmer(Size ~ PDO_half + (1 | Plot), data = PDOdf1)
+
+## compare AIC
+PDO_full_AIC <- AIC(PDO_full_mod)
+PDO_half_AIC <- AIC(PDO_half_mod)
+
+## True or False, is the Jan-Jun PDO model AIC smaller than the PDO full AIC?
+PDO_half_AIC < PDO_full_AIC
+
+## What is the delta AIC?
+PDO_full_AIC - PDO_half_AIC
+
+
 ```
+The full PDO model has more support than the half model. 
+
+Then, using the full PDO model, we tested a non-lagged versus one-year lagged dataset.
+```{r PDO2}
+## no lag, averaged for 12 months (same as PDO_full above)
+PDO_nolag <- PDOraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time),
+         Month = month(time)) %>%
+  mutate(pdo = as.numeric(PDO)) %>%
+  group_by(Year) %>%
+  summarise(PDO = mean(pdo, na.rm = TRUE)) %>%
+  dplyr::select(Year, PDO) %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  mutate(PDO_nolag = scale(PDO)) %>%
+  arrange(Year) 
+
+## one year lag, averaged for 12 months
+PDO_lag <- PDOraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time),
+         Month = month(time)) %>%
+  mutate(pdo = as.numeric(PDO)) %>%
+  group_by(Year) %>%
+  summarise(PDO = mean(pdo, na.rm = TRUE)) %>%
+  dplyr::select(Year, PDO) %>%
+  filter(Year >= 2008 & Year <= 2016) %>%
+  mutate(PDO_lag = scale(PDO),
+         TrueYear = Year,
+         Year = TrueYear + 1) %>%
+  arrange(Year) %>%
+  dplyr::select(Year, PDO_lag)
+
+## join 2 datasets together
+PDO2 <- full_join(PDO_nolag, PDO_lag, by = "Year")
+
+## join with egg size data
+PDOdf2 <- left_join(egg, PDO2, by = "Year")
+  
+## run models
+PDO_nolag_mod <- lmer(Size ~ PDO_nolag + (1 | Plot), data = PDOdf2) 
+PDO_lag_mod <- lmer(Size ~ PDO_lag + (1 | Plot), data = PDOdf2)
+
+## compare AIC
+PDO_nolag_AIC <- AIC(PDO_nolag_mod)
+PDO_lag_AIC <- AIC(PDO_lag_mod)
+
+## True or False, is the no lag PDO model AIC smaller than the PDO lag AIC?
+PDO_nolag_AIC < PDO_lag_AIC
+
+## What is the delta AIC?
+PDO_nolag_AIC - PDO_lag_AIC
+```
+There is support for including a one year lag for the PDO model averaged for 12 months.
+
 
 ## ONI
 ```{r ONI}
@@ -503,10 +644,11 @@ ONI_full <- ONIraw %>%
   dplyr::select(Year, ONI) %>%
   filter(Year >= 2009 & Year <= 2017) %>%
   arrange(Year) %>%
+  mutate(ONI_full = scale(ONI)) %>%
   as_tibble()
 
 ## for January-June only
-ONI <- ONIraw %>%
+ONI_half <- ONIraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
   mutate(Year = year(time),
@@ -517,6 +659,87 @@ ONI <- ONIraw %>%
   summarise(ONI = mean(oni, na.rm = TRUE)) %>%
   dplyr::select(Year, ONI) %>%
   filter(Year >= 2009 & Year <= 2017) %>%
+  mutate(ONI_half = scale(ONI)) %>%
   arrange(Year) %>%
   as_tibble()
+
+## join 2 datasets together
+ONI1 <- full_join(ONI_full, ONI_half, by = "Year")
+
+## join with egg size data
+ONIdf1 <- left_join(egg, ONI1, by = "Year")
+
+## run models
+ONI_full_mod <- lmer(Size ~ ONI_full + (1 | Plot), data = ONIdf1) 
+ONI_half_mod <- lmer(Size ~ ONI_half + (1 | Plot), data = ONIdf1)
+
+## compare AIC
+ONI_full_AIC <- AIC(ONI_full_mod)
+ONI_half_AIC <- AIC(ONI_half_mod)
+
+## True or False, is the Jan-Jun ONI model AIC smaller than the ONI full AIC?
+ONI_half_AIC < ONI_full_AIC
+
+## What is the delta AIC?
+ONI_full_AIC - ONI_half_AIC
+
 ```
+The full ONI model has more support. 
+
+Using the full ONI model, we tested a non-lagged versus one-year lagged dataset.
+```{r ONI2}
+## no lag, averaged for 12 months (same as ONI_full above)
+
+ONI_nolag <- ONIraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time),
+         Month = month(time)) %>%
+  mutate(oni = as.numeric(ONI)) %>%
+  group_by(Year) %>%
+  summarise(ONI = mean(oni, na.rm = TRUE)) %>%
+  dplyr::select(Year, ONI) %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  mutate(ONI_nolag = scale(ONI)) %>%
+  arrange(Year) %>%
+  as_tibble()
+
+## one year lag, averaged for 12 months
+ONI_lag <- ONIraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time),
+         Month = month(time)) %>%
+  mutate(oni = as.numeric(ONI)) %>%
+  group_by(Year) %>%
+  summarise(ONI = mean(oni, na.rm = TRUE)) %>%
+  dplyr::select(Year, ONI) %>%
+  filter(Year >= 2008 & Year <= 2016) %>%
+  mutate(ONI_lag = scale(ONI),
+         TrueYear = Year,
+         Year = TrueYear + 1) %>%
+  arrange(Year) %>%
+  dplyr::select(Year, ONI_lag) 
+
+## join 2 datasets together
+ONI2 <- full_join(ONI_nolag, ONI_lag, by = "Year")
+
+## join with egg size data
+ONIdf2 <- left_join(egg, ONI2, by = "Year")
+  
+## run models
+ONI_nolag_mod <- lmer(Size ~ ONI_nolag + (1 | Plot), data = ONIdf2) 
+ONI_lag_mod <- lmer(Size ~ ONI_lag + (1 | Plot), data = ONIdf2)
+
+## compare AIC
+ONI_nolag_AIC <- AIC(ONI_nolag_mod)
+ONI_lag_AIC <- AIC(ONI_lag_mod)
+
+## True or False, is the no lag ONI model AIC smaller than the ONI lag AIC?
+ONI_nolag_AIC < ONI_lag_AIC
+
+## What is the delta AIC?
+ONI_nolag_AIC - ONI_lag_AIC
+```
+The no lag 12 month ONI model has more support. 
+
