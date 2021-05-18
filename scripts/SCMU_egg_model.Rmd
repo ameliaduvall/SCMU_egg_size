@@ -392,9 +392,9 @@ library(RLRsim)
 #SJC ADDED 
 #based on a strict alpha = 0.05, we would keep plot (p ~ 0.004) but eliminate observer (p ~ 0.09). We can make a decision either way though... 
 
-exactRLRT(bm_obs, bm1, bm_plot)
+exactRLRT(bm_obs1, bm1, bm_plot)
 
-exactRLRT(bm_plot, bm1, bm_obs)
+exactRLRT(bm_plot, bm1, bm_obs1)
 
 exactLRT(bm_obs1,bm_null)
 
