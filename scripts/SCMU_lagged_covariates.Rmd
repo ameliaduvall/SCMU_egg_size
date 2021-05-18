@@ -23,7 +23,7 @@ library(sjPlot)
 This is `r paste0("v.", (Sys.Date()))`
 
 # Introduction
-This document tests the inclusion of lagged environmental covariates in the Scripps's Murrelet egg size model. We initially selected the time period January-June for covariates available at a monthly sampling rate due to the overlap with the murrelet breeding season. Later we discovered that "the statistical relationship between NPGO index and nearshore wind variability (most upwelling favorable) along the U.S. West coast is strongest in the wintertime (December to March) off Central California" (Chenillat et al. 2012). Therefore, we felt it was pertinent tests lags on all environmental covariate data since the effects of some environmental conditions may take time to manifest in terms of prey availability for murrelets during the breeding season. For each environmental covariate, we used single covariate models to test the support of a non-lagged covariate (2009-2017 data) versus a one-year lagged covariate (2008-2016 data) via AIC model selection. Most covariates were available at a monthly sampling rate, with the exception of larval anchovy. For covariates at a monthly sampling rate, we also tested a "full" covariate model with monthyl sampling data averaged across 12 months versus a "half" covariate model with monthly sampling data averaged across 6 months (January-June).
+This document tests the inclusion of lagged environmental covariates in the Scripps's Murrelet egg size model. We initially selected the time period January-June for covariates available at a monthly sampling rate due to the overlap with the murrelet breeding season. However, we felt it was pertinent to tests lags on all environmental covariate data since the effects of some environmental conditions may take time to manifest in terms of prey availability for murrelets during the breeding season. For each environmental covariate, we used single covariate models to test the support of a non-lagged covariate (2009-2017 data) versus a one-year lagged covariate (2008-2016 data) via AIC model selection. Most covariates were available at a monthly sampling rate, with the exception of larval anchovy. For covariates at a monthly sampling rate, we also tested a "full" covariate model with monthly sampling data averaged across 12 months versus a "half" covariate model with monthly sampling data averaged across 6 months (January-June).
 
 We tested 6 covariates: 
 1. Larval anchovy - SCC (ANCHL)  
@@ -87,6 +87,7 @@ ANCHL_nolag_AIC < ANCHL_lag_AIC
 ## What is the delta AIC?
 ANCHL_lag_AIC - ANCHL_nolag_AIC
 ```
+There is support to use the non-lagged ANCHL data. 
 
 ## BEUTI
 First, we tested against using data from the entire year versus from January-June. 
@@ -146,7 +147,7 @@ Both models are supported. We selected the Jan-June model for ecological reasons
 
 Then, using the top model, we tested a non-lagged versus one-year lagged dataset.
 ```{r BEUTI2}
-## no lag, averaged for Jan-June
+## no lag, averaged for Jan-June (same as BEUTI_half above)
 BEUTI_nolag <- BEUTIraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
@@ -258,7 +259,7 @@ BEUTI_half_lag_AIC < BEUTI_full_lag_AIC
 ## What is the delta AIC?
 BEUTI_full_lag_AIC - BEUTI_half_lag_AIC
 ```
-Both models are supported (which is what we would expect based on the first two tests).
+Both models are supported (which is what we would expect based on the first two tests). There is support to use 12-month averaged lagged data OR 6-month averaged lagged data for BEUTI. 
 
 ## SST
 First, we tested against using data from the entire year versus from January-June. 
@@ -369,12 +370,14 @@ SST_nolag_AIC < SST_lag_AIC
 ## What is the delta AIC?
 SST_nolag_AIC - SST_lag_AIC
 ```
-The non-lagged SST data has more support.
+The non-lagged SST data has more support. There is support for a non-lagged SST data from the entire year (12 months). 
 
 ## NPGO
+First, we tested three single covariate models: 1) data averaged from the entire year, 2) data from January-June, and 3) data from December-March (as supported by Chenillat et al. 2012, "the statistical relationship between NPGO index and nearshore wind variability (most upwelling favorable) along the U.S. West coast is strongest in the wintertime (December to March) off Central California"). 
 ```{r NPGO}
 NPGOraw <- read_csv(here("data", "covariates", "cciea_OC_NPGO_712b_5843_9069.csv"))
 
+## Averaged over all 12 months
 NPGO_full <- NPGOraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
@@ -384,11 +387,27 @@ NPGO_full <- NPGOraw %>%
   summarise(NPGO = mean(npgo, na.rm = TRUE)) %>%
   dplyr::select(Year, NPGO) %>%
   filter(Year >= 2009 & Year <= 2017) %>%
+  mutate(NPGO_full = scale(NPGO)) %>%
   arrange(Year) %>%
   as_tibble()
 
-## for December-March only
-NPGO <- NPGOraw %>%
+## Averaged for January-June only
+NPGO_half <- NPGOraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time),
+         Month = month(time)) %>%
+  mutate(npgo = as.numeric(NPGO)) %>%
+  filter(Month == 1 | Month == 2 | Month == 3 |Month == 4 | Month == 5 | Month == 6) %>% 
+  group_by(Year) %>%
+  summarise(NPGO = mean(npgo, na.rm = TRUE)) %>%
+  dplyr::select(Year, NPGO) %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  mutate(NPGO_half = scale(NPGO)) %>%
+  arrange(Year) 
+
+## Averaged for December-March only
+NPGO_delay <- NPGOraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
   mutate(Year = year(time),
@@ -403,10 +422,40 @@ NPGO <- NPGOraw %>%
   group_by(Period) %>%
   summarise(NPGO = mean(npgo, na.rm = TRUE)) %>%
   mutate(Year = 2009:2017) %>%
-  dplyr::select(Year, NPGO) %>%
-  arrange(Year) %>%
-  as_tibble()
+  mutate(NPGO_delay = scale(NPGO)) %>%
+  dplyr::select(Year, NPGO_delay) %>%
+  arrange(Year) 
+
+## join 2 datasets together
+NPGO1 <- full_join(NPGO_full, NPGO_half, by = "Year")
+NPGO2 <- full_join(NPGO1, NPGO_delay, by = "Year")
+
+## join with egg size data
+NPGOdf1 <- left_join(egg, NPGO2, by = "Year")
+
+## run models
+NPGO_full_mod <- lmer(Size ~ NPGO_full + (1 | Plot), data = NPGOdf1) 
+NPGO_half_mod <- lmer(Size ~ NPGO_half + (1 | Plot), data = NPGOdf1)
+NPGO_delay_mod <- lmer(Size ~ NPGO_delay + (1 | Plot), data = NPGOdf1)
+
+## compare AIC
+NPGO_full_AIC <- AIC(NPGO_full_mod)
+NPGO_half_AIC <- AIC(NPGO_half_mod)
+NPGO_delay_AIC <- AIC(NPGO_delay_mod)
+
+## True or False, is the full NPGO model AIC smaller than the half NPGO model AIC?
+NPGO_full_AIC < NPGO_half_AIC
+
+## What is the delta AIC?
+NPGO_full_AIC - NPGO_half_AIC
+
+## True or False, is the delay NPGO model AIC smaller than the full NPGO model AIC?
+NPGO_delay_AIC < NPGO_full_AIC
+
+## What is the delta AIC?
+NPGO_delay_AIC - NPGO_full_AIC
 ```
+The model that used all data from 12 months averaged for NPGO had the best fit. 
 
 ## PDO
 ```{r PDO}
