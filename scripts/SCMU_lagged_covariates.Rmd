@@ -1,0 +1,382 @@
+---
+title: "Scripps's Murrelet - Lagged Covariates"
+author: "Amelia J. DuVall & Marcela Todd"
+date: "5/16/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+## load libraries
+library(here)
+library(tidyverse)
+library(janitor)
+library(ggplot2)
+library(lubridate)
+library(viridis)
+library(lme4)
+library(faraway)
+library(sjPlot)
+```
+
+This is `r paste0("v.", (Sys.Date()))`
+
+# Introduction
+This document tests the inclusion of lagged environmental covariates in the Scripps's Murrelet egg size model. We initially selected the time period January-June for covariates available at a monthly sampling rate due to the overlap with the murrelet breeding season. Later we discovered that "the statistical relationship between NPGO index and nearshore wind variability (most upwelling favorable) along the U.S. West coast is strongest in the wintertime (December to March) off Central California" (Chenillat et al. 2012). Therefore, we felt it was pertinent tests lags on all environmental covariate data since the effects of some environmental conditions may take time to manifest in terms of prey availability for murrelets during the breeding season. For each environmental covariate, we used single covariate models to test the support of a non-lagged covariate (2009-2017 data) versus a one-year lagged covariate (2008-2016 data) via AIC model selection. Most covariates were available at a monthly sampling rate, with the exception of larval anchovy. For covariates at a monthly sampling rate, we also tested a "full" covariate model with monthyl sampling data averaged across 12 months versus a "half" covariate model with monthly sampling data averaged across 6 months (January-June).
+
+We tested 6 covariates: 
+1. Larval anchovy - SCC (ANCHL)  
+2. Biologically Effective Upwelling Transport Index (BEUTI)  
+3. Sea Surface Temperature (SST)  
+4. North Pacific Gyre Oscillation Index (NPGO)  5. Pacific Decadal Oscillation Index (PDO)  
+6. Oceanic Nino Index (ONI)  
+
+See SCMU_egg_covariates.Rmd for more information on covariate sourcing.  
+
+```{r df}
+## load egg size data
+egg <- read.csv(here("data", "SCMU_egg_data.csv"))%>%
+  filter(TrueOrder == TRUE) %>% # egg order known only
+  select(Year, Observer, Plot, Size, EggOrder)
+```
+
+# Environmental Covariates
+
+## ANCHL
+```{r anchovyl}
+ANCHLraw  <- read.csv(here("data", "covariates", "cciea_EI_FBS_2020_a29e_1fd0_409d.csv"), na.strings = "NaN")
+
+ANCHL <- ANCHLraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time)) %>%
+  mutate(ANCHL = as.numeric(relative_abundance)) %>%
+  arrange(Year) %>%
+  filter(Year >= 2008 & Year <= 2017) %>%
+  dplyr::select(Year, ANCHL) 
+
+ANCHL_nolag <- ANCHL %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  mutate(ANCHL_nolag = scale(ANCHL)) %>%
+  dplyr::select(Year, ANCHL_nolag)
+
+ANCHL_lag <- ANCHL %>%
+  filter(Year >= 2008 & Year <= 2016) %>%
+  mutate(TrueYear = Year,
+         Year = TrueYear + 1,
+         ANCHL_lag = scale(ANCHL)) %>%
+  dplyr::select(Year, ANCHL_lag)
+
+ANCHL1 <- full_join(ANCHL_nolag, ANCHL_lag, by = "Year")
+
+## join with egg size data
+ANCHLdf1 <- left_join(egg, ANCHL1, by = "Year")
+  
+## run models
+ANCHL_nolag_mod <- lmer(Size ~ ANCHL_nolag + (1 | Plot), data = ANCHLdf1) 
+ANCHL_lag_mod <- lmer(Size ~ ANCHL_lag + (1 | Plot), data = ANCHLdf1)
+
+## compare AIC
+ANCHL_nolag_AIC <- AIC(ANCHL_nolag_mod)
+ANCHL_lag_AIC <- AIC(ANCHL_lag_mod)
+
+## True or False, is the ANCHL no lag model AIC smaller than the ANCHL lag AIC?
+ANCHL_nolag_AIC < ANCHL_lag_AIC
+
+## What is the delta AIC?
+ANCHL_lag_AIC - ANCHL_nolag_AIC
+```
+
+## BEUTI
+First, we tested against using data from the entire year versus from January-June. 
+```{r BEUTI1}
+BEUTIraw <- read_csv(here("data", "covariates", "cciea_OC_BEUTI_784c_ef9f_af6f.csv"))
+
+## Averaged over all 12 months
+BEUTI_full <- BEUTIraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time)) %>%
+  mutate(beuti = as.numeric(beuti)) %>%
+  group_by(Year) %>%
+  summarise(BEUTI = mean(beuti, na.rm = TRUE)) %>%
+  dplyr::select(Year, BEUTI) %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  mutate(BEUTI_full = scale(BEUTI)) %>%
+  arrange(Year) 
+
+## Averaged for January-June only
+BEUTI_half <- BEUTIraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time),
+         Month = month(time)) %>%
+  mutate(beuti = as.numeric(beuti)) %>%
+  filter(Month == 1 | Month == 2 | Month == 3 |Month == 4 | Month == 5 | Month == 6) %>%
+    # filter(Month == 1 | Month == 2 | Month == 3 |Month == 4 | Month == 5) %>%
+  group_by(Year) %>%
+  summarise(BEUTI = mean(beuti, na.rm = TRUE)) %>%
+  dplyr::select(Year, BEUTI) %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  mutate(BEUTI_half = scale(BEUTI)) %>%
+  arrange(Year) 
+
+## join 2 datasets together
+BEUTI1 <- full_join(BEUTI_full, BEUTI_half, by = "Year")
+
+## join with egg size data
+BEUTIdf1 <- left_join(egg, BEUTI1, by = "Year")
+  
+## run models
+BEUTI_full_mod <- lmer(Size ~ BEUTI_full + (1 | Plot), data = BEUTIdf1) 
+BEUTI_half_mod <- lmer(Size ~ BEUTI_half + (1 | Plot), data = BEUTIdf1)
+
+## compare AIC
+BEUTI_full_AIC <- AIC(BEUTI_full_mod)
+BEUTI_half_AIC <- AIC(BEUTI_half_mod)
+
+## True or False, is the Jan-Jun BEUTI model AIC smaller than the BEUTI full AIC?
+BEUTI_half_AIC < BEUTI_full_AIC
+
+## What is the delta AIC?
+BEUTI_half_AIC - BEUTI_full_AIC
+```
+Both models are supported. We selected the Jan-June model for ecological reasons.
+
+Then, using the top model, we tested a non-lagged versus one-year lagged dataset.
+```{r BEUTI2}
+## no lag, averaged for Jan-June
+BEUTI_nolag <- BEUTIraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time),
+         Month = month(time)) %>%
+  mutate(beuti = as.numeric(beuti)) %>%
+  filter(Month == 1 | Month == 2 | Month == 3 |Month == 4 | Month == 5 | Month == 6) %>%
+  group_by(Year) %>%
+  summarise(BEUTI = mean(beuti, na.rm = TRUE)) %>%
+  dplyr::select(Year, BEUTI) %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  mutate(BEUTI_nolag = scale(BEUTI)) %>%
+  arrange(Year) %>%
+  dplyr::select(Year, BEUTI_nolag)
+
+## one year lag, averaged for Jan-June
+BEUTI_lag <- BEUTIraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time),
+         Month = month(time)) %>%
+  mutate(beuti = as.numeric(beuti)) %>%
+  filter(Month == 1 | Month == 2 | Month == 3 |Month == 4 | Month == 5 | Month == 6) %>%
+  group_by(Year) %>%
+  summarise(BEUTI = mean(beuti, na.rm = TRUE)) %>%
+  dplyr::select(Year, BEUTI) %>%
+  filter(Year >= 2008 & Year <= 2016) %>%
+  mutate(BEUTI_lag = scale(BEUTI),
+         TrueYear = Year,
+         Year = TrueYear + 1) %>%
+  arrange(Year) %>%
+  dplyr::select(Year, BEUTI_lag)
+
+## join 2 datasets together
+BEUTI2 <- full_join(BEUTI_nolag, BEUTI_lag, by = "Year")
+
+## join with egg size data
+BEUTIdf2 <- left_join(egg, BEUTI2, by = "Year")
+  
+## run models
+BEUTI_nolag_mod <- lmer(Size ~ BEUTI_nolag + (1 | Plot), data = BEUTIdf2) 
+BEUTI_lag_mod <- lmer(Size ~ BEUTI_lag + (1 | Plot), data = BEUTIdf2)
+
+## compare AIC
+BEUTI_nolag_AIC <- AIC(BEUTI_nolag_mod)
+BEUTI_lag_AIC <- AIC(BEUTI_lag_mod)
+
+## True or False, is the no lag BEUTI model AIC smaller than the BEUTI lag AIC?
+BEUTI_nolag_AIC < BEUTI_lag_AIC
+
+## What is the delta AIC?
+BEUTI_nolag_AIC - BEUTI_lag_AIC
+```
+There is more support for a one-year lagged BEUTI from January-June. 
+
+Compare full one-year lagged BEUTI versus half one-year lagged BEUTI.
+```{r BEUTI3}
+## one year lag, all 12 months
+BEUTI_full_lag <- BEUTIraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time)) %>%
+  mutate(beuti = as.numeric(beuti)) %>%
+  group_by(Year) %>%
+  summarise(BEUTI = mean(beuti, na.rm = TRUE)) %>%
+  dplyr::select(Year, BEUTI) %>%
+  filter(Year >= 2008 & Year <= 2016) %>%
+  mutate(BEUTI_full_lag = scale(BEUTI),
+         TrueYear = Year,
+         Year = TrueYear + 1) %>%
+  arrange(Year) %>%
+  dplyr::select(Year, BEUTI_full_lag)
+
+## one year lag, averaged for Jan-June (same above BEUTI_lag above)
+BEUTI_half_lag <- BEUTIraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time),
+         Month = month(time)) %>%
+  mutate(beuti = as.numeric(beuti)) %>%
+  filter(Month == 1 | Month == 2 | Month == 3 |Month == 4 | Month == 5 | Month == 6) %>%
+  group_by(Year) %>%
+  summarise(BEUTI = mean(beuti, na.rm = TRUE)) %>%
+  dplyr::select(Year, BEUTI) %>%
+  filter(Year >= 2008 & Year <= 2016) %>%
+  mutate(BEUTI_half_lag = scale(BEUTI),
+         TrueYear = Year,
+         Year = TrueYear + 1) %>%
+  arrange(Year) %>%
+  dplyr::select(Year, BEUTI_half_lag)
+
+## join 2 datasets together
+BEUTI3 <- full_join(BEUTI_full_lag, BEUTI_half_lag, by = "Year")
+
+## join with egg size data
+BEUTIdf3 <- left_join(egg, BEUTI3, by = "Year")
+
+## run model
+BEUTI_full_lag_mod <- lmer(Size ~ BEUTI_full_lag + (1 | Plot), data = BEUTIdf3) 
+BEUTI_half_lag_mod <- lmer(Size ~ BEUTI_half_lag + (1 | Plot), data = BEUTIdf3) 
+  
+## compare AIC
+BEUTI_full_lag_AIC <- AIC(BEUTI_full_lag_mod)
+BEUTI_half_lag_AIC <- AIC(BEUTI_half_lag_mod)
+
+## True or False, is the half lag BEUTI model AIC smaller than the BEUTI full lag AIC?
+BEUTI_half_lag_AIC < BEUTI_full_lag_AIC
+
+## What is the delta AIC?
+BEUTI_full_lag_AIC - BEUTI_half_lag_AIC
+```
+Both models are supported (which is what we would expect based on the first two tests).
+
+## SST
+```{r sst}
+SSTraw <- read_csv(here("data", "covariates", "cciea_OC_SST3_91cf_d165_213f-46025.csv"))
+
+## for January-June only
+SST <- SSTraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time),
+         Month = month(time)) %>%
+  mutate(sst = as.numeric(SST)) %>%
+  filter(Month == 1 | Month == 2 | Month == 3 |Month == 4 | Month == 5 | Month == 6) %>% 
+  group_by(Year) %>%
+  summarise(SST = mean(sst, na.rm = TRUE)) %>%
+  dplyr::select(Year, SST) %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  arrange(Year) %>%
+  as_tibble()
+```
+
+## NPGO
+```{r NPGO}
+NPGOraw <- read_csv(here("data", "covariates", "cciea_OC_NPGO_712b_5843_9069.csv"))
+
+NPGO_full <- NPGOraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time)) %>%
+  mutate(npgo = as.numeric(NPGO)) %>%
+  group_by(Year) %>%
+  summarise(NPGO = mean(npgo, na.rm = TRUE)) %>%
+  dplyr::select(Year, NPGO) %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  arrange(Year) %>%
+  as_tibble()
+
+## for December-March only
+NPGO <- NPGOraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time),
+         Month = month(time)) %>%
+  mutate(npgo = as.numeric(NPGO)) %>%
+  filter(Month == 12 | Month == 1 | Month == 2 | Month == 3) %>%
+  filter(Year >= 2008 & Year <= 2017)%>%
+  slice(-c(1:3)) %>%
+  slice(-37) %>%
+  mutate(Period = c(rep("A", 4), rep("B", 4), rep("C", 4), rep("D", 4), 
+                     rep("E", 4), rep("F", 4), rep("G", 4), rep("H", 4), rep("I", 4))) %>%
+  group_by(Period) %>%
+  summarise(NPGO = mean(npgo, na.rm = TRUE)) %>%
+  mutate(Year = 2009:2017) %>%
+  dplyr::select(Year, NPGO) %>%
+  arrange(Year) %>%
+  as_tibble()
+```
+
+## PDO
+```{r PDO}
+PDOraw <- read_csv(here("data", "covariates", "cciea_OC_PDO_712b_5843_9069.csv"))
+
+PDO_full <- PDOraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time)) %>%
+  mutate(pdo = as.numeric(PDO)) %>%
+  group_by(Year) %>%
+  summarise(PDO = mean(pdo, na.rm = TRUE)) %>%
+  dplyr::select(Year, PDO) %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  arrange(Year) %>%
+  as_tibble()
+
+## for January-June only
+PDO <- PDOraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time),
+         Month = month(time)) %>%
+  mutate(pdo = as.numeric(PDO)) %>%
+  filter(Month == 1 | Month == 2 | Month == 3 |Month == 4 | Month == 5 | Month == 6) %>%
+  group_by(Year) %>%
+  summarise(PDO = mean(pdo, na.rm = TRUE)) %>%
+  dplyr::select(Year, PDO) %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  arrange(Year) %>%
+  as_tibble()
+```
+
+## ONI
+```{r ONI}
+ONIraw <- read_csv(here("data", "covariates", "cciea_OC_ONI_712b_5843_9069.csv"))
+
+ONI_full <- ONIraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time)) %>%
+  mutate(oni = as.numeric(ONI)) %>%
+  group_by(Year) %>%
+  summarise(ONI = mean(oni, na.rm = TRUE)) %>%
+  dplyr::select(Year, ONI) %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  arrange(Year) %>%
+  as_tibble()
+
+## for January-June only
+ONI <- ONIraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time),
+         Month = month(time)) %>%
+  mutate(oni = as.numeric(ONI)) %>%
+  filter(Month == 1 | Month == 2 | Month == 3 |Month == 4 | Month == 5 | Month == 6) %>%
+  group_by(Year) %>%
+  summarise(ONI = mean(oni, na.rm = TRUE)) %>%
+  dplyr::select(Year, ONI) %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  arrange(Year) %>%
+  as_tibble()
+```
