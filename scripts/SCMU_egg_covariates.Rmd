@@ -25,7 +25,7 @@ This is `r paste0("v.", (Sys.Date()))`
 # Introduction
 This document details steps taken to compile covariate data for a linear mixed model on Scripps's Murrelet (*Synthliboramphus scrippsi*) egg size at Santa Barbara Island within Channel Islands National Park from 2009-2017.
 
-We decided to pull relevant covariates from January-June only because murrelets begin to arrive at the colony in January and clutch initiation extends from March to June (Murray et al. 1985). 
+At first, we decided to pull relevant covariates from January-June only because murrelets begin to arrive at the colony in January and clutch initiation extends from March to June (Murray et al. 1985). Then, we tested lagged and non-lagged covariates (see SCMU_lagged_covariates.Rmd). 
 
 # Potential Covariates
 
@@ -37,23 +37,39 @@ NOAA buoy station 46025: https://www.ndbc.noaa.gov/station_page.php?station=4602
 Historical data here: https://www.ndbc.noaa.gov/station_history.php?station=46025  
 Data descriptions here: https://www.ndbc.noaa.gov/measdes.shtml  
 Data pulled from: https://www.integratedecosystemassessment.noaa.gov/regions/california-current/cc-indicator-status-trends
+
+For SST, we pulled data from the entire year (12 months) with no lag. 
 ```{r sst}
 SSTraw <- read_csv(here("data", "covariates", "cciea_OC_SST3_91cf_d165_213f-46025.csv"))
 
-## for January-June only
+## Averaged over all 12 months
 SST <- SSTraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
   mutate(Year = year(time),
          Month = month(time)) %>%
   mutate(sst = as.numeric(SST)) %>%
-  filter(Month == 1 | Month == 2 | Month == 3 |Month == 4 | Month == 5 | Month == 6) %>% 
   group_by(Year) %>%
   summarise(SST = mean(sst, na.rm = TRUE)) %>%
   dplyr::select(Year, SST) %>%
   filter(Year >= 2009 & Year <= 2017) %>%
-  arrange(Year) %>%
-  as_tibble()
+  mutate(SST_full = scale(SST)) %>%
+  arrange(Year) 
+
+# ## for January-June only
+# SST <- SSTraw %>%
+#   slice(-1) %>%
+#   mutate(time = ymd_hms(time)) %>%
+#   mutate(Year = year(time),
+#          Month = month(time)) %>%
+#   mutate(sst = as.numeric(SST)) %>%
+#   filter(Month == 1 | Month == 2 | Month == 3 |Month == 4 | Month == 5 | Month == 6) %>% 
+#   group_by(Year) %>%
+#   summarise(SST = mean(sst, na.rm = TRUE)) %>%
+#   dplyr::select(Year, SST) %>%
+#   filter(Year >= 2009 & Year <= 2017) %>%
+#   arrange(Year) %>%
+#   as_tibble()
 
 # ## load annual files
 # wx2009 <- read_csv(here("data", "covariates", "buoy_46025_2009_wx.csv"), na = c("999")) %>%
@@ -155,7 +171,7 @@ ANCHA <- ANCHAraw %>%
 Dr. Andrew Thompson (NOAA; andrew.thompson@noaa.gov); derived from spring CalCOFI surveys. Larval fish data summed across all stations of the CalCOFI survey in spring (units are in number under 10 sq. m of surface area; ln(abundance+1)).
 CalCOFI lines 76.7 - 93.3; stations 28.0 - 120/0  
 
-Note: No data available for 2017 (check why)  
+For ANCHL, we used data from the full year with no lag (yearly sampling rate). 
 ```{r anchovyl}
 # ANCHLraw  <- read_csv(here("data", "covariates", "cciea_EI_FBS_a29e_1fd0_409d.csv"), na.strings = "NaN")
 ANCHLraw  <- read.csv(here("data", "covariates", "cciea_EI_FBS_2020_a29e_1fd0_409d.csv"), na.strings = "NaN")
@@ -195,45 +211,67 @@ KRILL <- KRILLraw %>%
 Summary: UW/JISAO (http://research.jisao.washington.edu/pdo/PDO.latest.txt) The PDO is calculated from an Empirical Orthogonal analysis of sea surface temperature anomalies in the North Pacific. The PDO is the first dominant mode.\
 Institution: University of Washington, Joint Institute for the Study of the Atmosphere and Ocean (JISAO)\
 Time span: 1900-01-01T00:00:00Z - 2020-04-01T00:00:00Z\
+
+For PDO, we used data from the entire year (12 months) with a one-year lag.
 ```{r PDO}
 PDOraw <- read_csv(here("data", "covariates", "cciea_OC_PDO_712b_5843_9069.csv"))
 
-PDO_full <- PDOraw %>%
-  slice(-1) %>%
-  mutate(time = ymd_hms(time)) %>%
-  mutate(Year = year(time)) %>%
-  mutate(pdo = as.numeric(PDO)) %>%
-  group_by(Year) %>%
-  summarise(PDO = mean(pdo, na.rm = TRUE)) %>%
-  dplyr::select(Year, PDO) %>%
-  filter(Year >= 2009 & Year <= 2017) %>%
-  arrange(Year) %>%
-  as_tibble()
-
-## for January-June only
+## one year lag, averaged for 12 months
 PDO <- PDOraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
   mutate(Year = year(time),
          Month = month(time)) %>%
   mutate(pdo = as.numeric(PDO)) %>%
-  filter(Month == 1 | Month == 2 | Month == 3 |Month == 4 | Month == 5 | Month == 6) %>%
   group_by(Year) %>%
   summarise(PDO = mean(pdo, na.rm = TRUE)) %>%
   dplyr::select(Year, PDO) %>%
-  filter(Year >= 2009 & Year <= 2017) %>%
+  filter(Year >= 2008 & Year <= 2016) %>%
+  mutate(PDO_lag = scale(PDO),
+         TrueYear = Year,
+         Year = TrueYear + 1) %>%
   arrange(Year) %>%
-  as_tibble()
+  dplyr::select(Year, PDO_lag)
+
+# PDO_full <- PDOraw %>%
+#   slice(-1) %>%
+#   mutate(time = ymd_hms(time)) %>%
+#   mutate(Year = year(time)) %>%
+#   mutate(pdo = as.numeric(PDO)) %>%
+#   group_by(Year) %>%
+#   summarise(PDO = mean(pdo, na.rm = TRUE)) %>%
+#   dplyr::select(Year, PDO) %>%
+#   filter(Year >= 2009 & Year <= 2017) %>%
+#   arrange(Year) %>%
+#   as_tibble()
+# 
+# ## for January-June only
+# PDO <- PDOraw %>%
+#   slice(-1) %>%
+#   mutate(time = ymd_hms(time)) %>%
+#   mutate(Year = year(time),
+#          Month = month(time)) %>%
+#   mutate(pdo = as.numeric(PDO)) %>%
+#   filter(Month == 1 | Month == 2 | Month == 3 |Month == 4 | Month == 5 | Month == 6) %>%
+#   group_by(Year) %>%
+#   summarise(PDO = mean(pdo, na.rm = TRUE)) %>%
+#   dplyr::select(Year, PDO) %>%
+#   filter(Year >= 2009 & Year <= 2017) %>%
+#   arrange(Year) %>%
+#   as_tibble()
 ```
 
 ### Oceanic Nino Index
 Summary: NOAA/CPC (http://origin.cpc.ncep.noaa.gov/products/analysis_monitoring/ensostuff/ONI_v5.php) The ONI is the 3 month running mean of sea surface temperature anomalies in the Nino 3.4 region\
 Institution: NOAA, Climate Prediction Center (CPC)\
 Time span: 1950-01-01T00:00:00Z - 2020-03-01T00:00:00Z\
+
+For ONI, we used data from the entire year (12 months) with no lag. 
 ```{r ONI}
 ONIraw <- read_csv(here("data", "covariates", "cciea_OC_ONI_712b_5843_9069.csv"))
 
-ONI_full <- ONIraw %>%
+## 12 months, no lag
+ONI <- ONIraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
   mutate(Year = year(time)) %>%
@@ -245,20 +283,20 @@ ONI_full <- ONIraw %>%
   arrange(Year) %>%
   as_tibble()
 
-## for January-June only
-ONI <- ONIraw %>%
-  slice(-1) %>%
-  mutate(time = ymd_hms(time)) %>%
-  mutate(Year = year(time),
-         Month = month(time)) %>%
-  mutate(oni = as.numeric(ONI)) %>%
-  filter(Month == 1 | Month == 2 | Month == 3 |Month == 4 | Month == 5 | Month == 6) %>%
-  group_by(Year) %>%
-  summarise(ONI = mean(oni, na.rm = TRUE)) %>%
-  dplyr::select(Year, ONI) %>%
-  filter(Year >= 2009 & Year <= 2017) %>%
-  arrange(Year) %>%
-  as_tibble()
+# ## for January-June only
+# ONI <- ONIraw %>%
+#   slice(-1) %>%
+#   mutate(time = ymd_hms(time)) %>%
+#   mutate(Year = year(time),
+#          Month = month(time)) %>%
+#   mutate(oni = as.numeric(ONI)) %>%
+#   filter(Month == 1 | Month == 2 | Month == 3 |Month == 4 | Month == 5 | Month == 6) %>%
+#   group_by(Year) %>%
+#   summarise(ONI = mean(oni, na.rm = TRUE)) %>%
+#   dplyr::select(Year, ONI) %>%
+#   filter(Year >= 2009 & Year <= 2017) %>%
+#   arrange(Year) %>%
+#   as_tibble()
 ```
 
 ### North Pacific Gyre Oscillation Index
@@ -267,40 +305,59 @@ Institution: Georgia Institute of Technology (GT)\
 Time span: 1950-01-01T00:00:00Z - 2019-07-01T00:00:00Z\
 This article also explains NPGO well: http://www.o3d.org/npgo/
 See also this paper: https://agupubs.onlinelibrary.wiley.com/doi/pdf/10.1029/2011GL049966
+
+For NPGO, we used data from the entire year (12 month) with a one-year lag. 
 ```{r NPGO}
 NPGOraw <- read_csv(here("data", "covariates", "cciea_OC_NPGO_712b_5843_9069.csv"))
 
-NPGO_full <- NPGOraw %>%
-  slice(-1) %>%
-  mutate(time = ymd_hms(time)) %>%
-  mutate(Year = year(time)) %>%
-  mutate(npgo = as.numeric(NPGO)) %>%
-  group_by(Year) %>%
-  summarise(NPGO = mean(npgo, na.rm = TRUE)) %>%
-  dplyr::select(Year, NPGO) %>%
-  filter(Year >= 2009 & Year <= 2017) %>%
-  arrange(Year) %>%
-  as_tibble()
-
-## for December-March only
+## one year lag, averaged for 12 months
 NPGO <- NPGOraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
   mutate(Year = year(time),
          Month = month(time)) %>%
   mutate(npgo = as.numeric(NPGO)) %>%
-  filter(Month == 12 | Month == 1 | Month == 2 | Month == 3) %>%
-  filter(Year >= 2008 & Year <= 2017)%>%
-  slice(-c(1:3)) %>%
-  slice(-37) %>%
-  mutate(Period = c(rep("A", 4), rep("B", 4), rep("C", 4), rep("D", 4), 
-                     rep("E", 4), rep("F", 4), rep("G", 4), rep("H", 4), rep("I", 4))) %>%
-  group_by(Period) %>%
+  group_by(Year) %>%
   summarise(NPGO = mean(npgo, na.rm = TRUE)) %>%
-  mutate(Year = 2009:2017) %>%
   dplyr::select(Year, NPGO) %>%
+  filter(Year >= 2008 & Year <= 2016) %>%
+  mutate(NPGO_lag = scale(NPGO),
+         TrueYear = Year,
+         Year = TrueYear + 1) %>%
   arrange(Year) %>%
-  as_tibble()
+  dplyr::select(Year, NPGO_lag)
+
+# NPGO_full <- NPGOraw %>%
+#   slice(-1) %>%
+#   mutate(time = ymd_hms(time)) %>%
+#   mutate(Year = year(time)) %>%
+#   mutate(npgo = as.numeric(NPGO)) %>%
+#   group_by(Year) %>%
+#   summarise(NPGO = mean(npgo, na.rm = TRUE)) %>%
+#   dplyr::select(Year, NPGO) %>%
+#   filter(Year >= 2009 & Year <= 2017) %>%
+#   arrange(Year) %>%
+#   as_tibble()
+# 
+# ## for December-March only
+# NPGO <- NPGOraw %>%
+#   slice(-1) %>%
+#   mutate(time = ymd_hms(time)) %>%
+#   mutate(Year = year(time),
+#          Month = month(time)) %>%
+#   mutate(npgo = as.numeric(NPGO)) %>%
+#   filter(Month == 12 | Month == 1 | Month == 2 | Month == 3) %>%
+#   filter(Year >= 2008 & Year <= 2017)%>%
+#   slice(-c(1:3)) %>%
+#   slice(-37) %>%
+#   mutate(Period = c(rep("A", 4), rep("B", 4), rep("C", 4), rep("D", 4), 
+#                      rep("E", 4), rep("F", 4), rep("G", 4), rep("H", 4), rep("I", 4))) %>%
+#   group_by(Period) %>%
+#   summarise(NPGO = mean(npgo, na.rm = TRUE)) %>%
+#   mutate(Year = 2009:2017) %>%
+#   dplyr::select(Year, NPGO) %>%
+#   arrange(Year) %>%
+#   as_tibble()
 ```
 
 ### Coastal Upwelling Transport Index (39N)
@@ -351,10 +408,13 @@ Institution: NOAA/SWFSC/ERD
 Time span: 1988-01-01T00:00:00Z - 2020-04-01T00:00:00Z
 
 Note: Check Latitude (39)
+
+For BEUTI, we used data from the entire year (12 months) with a one-year lag.
 ```{r BEUTI}
 BEUTIraw <- read_csv(here("data", "covariates", "cciea_OC_BEUTI_784c_ef9f_af6f.csv"))
 
-BEUTI_full <- BEUTIraw %>%
+## one year lag, all 12 months
+BEUTI <- BEUTIraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
   mutate(Year = year(time)) %>%
@@ -362,24 +422,39 @@ BEUTI_full <- BEUTIraw %>%
   group_by(Year) %>%
   summarise(BEUTI = mean(beuti, na.rm = TRUE)) %>%
   dplyr::select(Year, BEUTI) %>%
-  filter(Year >= 2009 & Year <= 2017) %>%
+  filter(Year >= 2008 & Year <= 2016) %>%
+  mutate(BEUTI_full_lag = scale(BEUTI),
+         TrueYear = Year,
+         Year = TrueYear + 1) %>%
   arrange(Year) %>%
-  as_tibble()
+  dplyr::select(Year, BEUTI_full_lag)
 
-## for January-June only
-BEUTI <- BEUTIraw %>%
-  slice(-1) %>%
-  mutate(time = ymd_hms(time)) %>%
-  mutate(Year = year(time),
-         Month = month(time)) %>%
-  mutate(beuti = as.numeric(beuti)) %>%
-  filter(Month == 1 | Month == 2 | Month == 3 |Month == 4 | Month == 5 | Month == 6) %>%
-  group_by(Year) %>%
-  summarise(BEUTI = mean(beuti, na.rm = TRUE)) %>%
-  dplyr::select(Year, BEUTI) %>%
-  filter(Year >= 2009 & Year <= 2017) %>%
-  arrange(Year) %>%
-  as_tibble()
+# BEUTI_full <- BEUTIraw %>%
+#   slice(-1) %>%
+#   mutate(time = ymd_hms(time)) %>%
+#   mutate(Year = year(time)) %>%
+#   mutate(beuti = as.numeric(beuti)) %>%
+#   group_by(Year) %>%
+#   summarise(BEUTI = mean(beuti, na.rm = TRUE)) %>%
+#   dplyr::select(Year, BEUTI) %>%
+#   filter(Year >= 2009 & Year <= 2017) %>%
+#   arrange(Year) %>%
+#   as_tibble()
+# 
+# ## for January-June only
+# BEUTI <- BEUTIraw %>%
+#   slice(-1) %>%
+#   mutate(time = ymd_hms(time)) %>%
+#   mutate(Year = year(time),
+#          Month = month(time)) %>%
+#   mutate(beuti = as.numeric(beuti)) %>%
+#   filter(Month == 1 | Month == 2 | Month == 3 |Month == 4 | Month == 5 | Month == 6) %>%
+#   group_by(Year) %>%
+#   summarise(BEUTI = mean(beuti, na.rm = TRUE)) %>%
+#   dplyr::select(Year, BEUTI) %>%
+#   filter(Year >= 2009 & Year <= 2017) %>%
+#   arrange(Year) %>%
+#   as_tibble()
 ```
 
 # Final Covariates
@@ -435,11 +510,17 @@ corrplot(cor$r)
 Positive correlations are displayed in blue and negative correlations in red color. Color intensity and the size of the circle are proportional to the correlation coefficients.  
 
 We selected +/- 0.65 as our cutoff for correlation. The following covariates should not be in the same model:
-1. ANCHL and NPGO
-2. BEUTI and PDO
-3. NPGO and SST
-4. ONI and PDO
-5. ONI and SST
+<!-- 1. ANCHL and NPGO -->
+<!-- 2. BEUTI and PDO -->
+<!-- 3. NPGO and SST -->
+<!-- 4. ONI and PDO -->
+<!-- 5. ONI and SST -->
+<!-- 6. PDO and SST -->
+1. ANCHL and PDO
+2. ANCL and SST
+3. ANCHL and NPGO
+4. BEUTI and PDO
+5. NPGO and PDO
 6. PDO and SST
 
 # Number of Candidate Models
@@ -455,18 +536,24 @@ cov_names <- colnames(predictors) <- colnames(covars)
 full_set <- expand.grid(predictors) # 64 combinations
 
 ## select models with correlated predictors
-ii <- which(full_set$ANCHL + full_set$NPGO == 2 |
+# ii <- which(full_set$ANCHL + full_set$NPGO == 2 |
+#               full_set$BEUTI + full_set$PDO == 2 |
+#               full_set$NPGO + full_set$SST == 2 |
+#               full_set$ONI + full_set$PDO == 2 |
+#               full_set$ONI + full_set$SST == 2 |
+#               full_set$PDO + full_set$SST == 2 ) # 45 models
+ii <- which(full_set$ANCHL + full_set$PDO == 2 |
+              full_set$ANCHL + full_set$SST == 2 |
+              full_set$ANCHL + full_set$NPGO == 2 |
               full_set$BEUTI + full_set$PDO == 2 |
-              full_set$NPGO + full_set$SST == 2 |
-              full_set$ONI + full_set$PDO == 2 |
-              full_set$ONI + full_set$SST == 2 |
-              full_set$PDO + full_set$SST == 2 ) # 45 models
+              full_set$NPGO + full_set$PDO == 2 |
+              full_set$PDO + full_set$SST == 2) # 42 models
 
 ## create reduced set of models and convert to a matrix for easier indexing
-use_set <- as.matrix(full_set[-ii,]) # 19 models
+use_set <- as.matrix(full_set[-ii,]) # 22 models
 
 ## number of models in set
-(n_mods <- nrow(use_set)) # 19 models out of potential 64
+(n_mods <- nrow(use_set)) # 22 models out of potential 64
 ```
 
 # Final Covariates Plot
@@ -493,5 +580,5 @@ ggplot(data = covarsplot, aes(x = year, y = value, color = covariate)) +
 finalcovars <- covars %>%
   mutate(Year = 2009:2017) %>%
   select(Year, everything())
-#write.csv(x = finalcovars, file = here("data", "covariates", "covars.csv")) 
+# write.csv(x = finalcovars, file = here("data", "covariates", "covars.csv")) 
 ```

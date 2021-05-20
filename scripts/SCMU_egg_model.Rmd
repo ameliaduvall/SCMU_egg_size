@@ -42,7 +42,7 @@ SCMUdf <- left_join(egg, covars, by = "Year") %>%
   as_tibble()
 
 ###SJC ADDED 
-SCMUdf <- SCMUdf[-c(which(is.na(SCMUdf$Observer==TRUE))),]
+# SCMUdf <- SCMUdf[-c(which(is.na(SCMUdf$Observer==TRUE))),]
 ```
 
 # Null Intercept-Only Model
@@ -120,18 +120,18 @@ cov_names <- colnames(predictors) <- colnames(SCMUdf[,5:11])
 full_set <- expand.grid(predictors) # 128 combinations
 
 ## select models with correlated predictors
-ii <- which(full_set$ANCHL + full_set$NPGO == 2 |
+ii <- which(full_set$ANCHL + full_set$PDO == 2 |
+              full_set$ANCHL + full_set$SST == 2 |
+              full_set$ANCHL + full_set$NPGO == 2 |
               full_set$BEUTI + full_set$PDO == 2 |
-              full_set$NPGO + full_set$SST == 2 |
-              full_set$ONI + full_set$PDO == 2 |
-              full_set$ONI + full_set$SST == 2 |
-              full_set$PDO + full_set$SST == 2 ) # 90 models
+              full_set$NPGO + full_set$PDO == 2 |
+              full_set$PDO + full_set$SST == 2) # 84 models
 
 ## create reduced set of models and convert to a matrix for easier indexing
-use_set <- as.matrix(full_set[-ii,]) # 38 models
+use_set <- as.matrix(full_set[-ii,]) # 44 models
 
 ## number of models in set
-(n_mods <- nrow(use_set)) # 38 models out of potential 64
+(n_mods <- nrow(use_set)) # 44 models out of potential 128
 
 ## create empty matrix for storing results
 mod_res <- matrix(NA, n_mods, 2)
@@ -140,9 +140,9 @@ colnames(mod_res) <- c("AIC", "BIC")
 ## fit models and store AIC & BIC
 for(i in 1:n_mods) {
   if(i == 1) {
-    fmla <- "Size ~ 1 + (1 | Observer) + (1 | Plot)"
+    fmla <- "Size ~ 1 +  (1 | Plot)"
   } else {
-    fmla <- paste("Size ~ (1 | Observer) + (1 | Plot) +", paste(cov_names[use_set[i,]], collapse = " + "))
+    fmla <- paste("Size ~ (1 | Plot) +", paste(cov_names[use_set[i,]], collapse = " + "))
   }
   mod_fit <- lmer(as.formula(fmla), data = SCMUdf, REML = TRUE)
   mod_res[i,"AIC"] <- AIC(mod_fit)
@@ -174,10 +174,10 @@ mpfe <- mp %>%
 
 usmr <- mpfe %>%
   mutate(k = as.vector(rowSums(use_set) + 2)) %>% #2 check this
-  mutate(modelno = 1:38) 
+  mutate(modelno = 1:44) 
 
 allm <- as.data.frame(delta_res) %>%
-  mutate(modelno = 1:38) %>%
+  mutate(modelno = 1:44) %>%
   arrange(deltaAIC) %>%
   left_join(usmr, by = "modelno") %>%
   dplyr::select(modelno, FEs, k, deltaAIC, deltaBIC)
@@ -190,6 +190,13 @@ There are three competitive models. All three models include EggOrder and BEUTI 
 
 # Top Models
 Here we look at the top three competitive models. 
+
+## New Top Model
+```{r ntm}
+topmod <- lmer(Size ~ EggOrder + BEUTI + NPGO + ONI + SST + (1 | Plot), data = SCMUdf, REML = TRUE)
+summary(topmod)  
+
+```
 
 ## First Top Model
 ```{r bestmod1}
