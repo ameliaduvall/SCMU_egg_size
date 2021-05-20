@@ -124,14 +124,15 @@ ii <- which(full_set$ANCHL + full_set$PDO == 2 |
               full_set$ANCHL + full_set$SST == 2 |
               full_set$ANCHL + full_set$NPGO == 2 |
               full_set$BEUTI + full_set$PDO == 2 |
-              full_set$NPGO + full_set$PDO == 2 |
-              full_set$PDO + full_set$SST == 2) # 84 models
+              full_set$NPGO + full_set$ONI == 2 |
+              full_set$NPGO + full_set$SST == 2 |
+              full_set$NPGO + full_set$PDO == 2) # 92 models
 
 ## create reduced set of models and convert to a matrix for easier indexing
-use_set <- as.matrix(full_set[-ii,]) # 44 models
+use_set <- as.matrix(full_set[-ii,]) # 36 models
 
 ## number of models in set
-(n_mods <- nrow(use_set)) # 44 models out of potential 128
+(n_mods <- nrow(use_set)) # 36 models out of potential 128
 
 ## create empty matrix for storing results
 mod_res <- matrix(NA, n_mods, 2)
@@ -174,10 +175,10 @@ mpfe <- mp %>%
 
 usmr <- mpfe %>%
   mutate(k = as.vector(rowSums(use_set) + 2)) %>% #2 check this
-  mutate(modelno = 1:44) 
+  mutate(modelno = 1:36) 
 
 allm <- as.data.frame(delta_res) %>%
-  mutate(modelno = 1:44) %>%
+  mutate(modelno = 1:36) %>%
   arrange(deltaAIC) %>%
   left_join(usmr, by = "modelno") %>%
   dplyr::select(modelno, FEs, k, deltaAIC, deltaBIC)
@@ -193,8 +194,15 @@ Here we look at the top three competitive models.
 
 ## New Top Model
 ```{r ntm}
-topmod <- lmer(Size ~ EggOrder + BEUTI + NPGO + ONI + SST + (1 | Plot), data = SCMUdf, REML = TRUE)
+topmod <- lmer(Size ~ EggOrder + BEUTI + NPGO + (1 | Plot), data = SCMUdf, REML = TRUE)
 summary(topmod)  
+
+```
+## New Top Model 2
+```{r topmod2}
+
+topmod2 <- lmer(Size ~ EggOrder + BEUTI + ONI + SST + (1 | Plot), data = SCMUdf, REML = TRUE)
+summary(topmod2)
 
 ```
 
@@ -243,9 +251,9 @@ These diagnostics are done for the first top model only but can be repeated for 
 ### Histogram of Predicted Values
 ```{r d1}
 ## extract predicted values and plot
-preds <- predict(bm1)
+preds <- predict(topmod2)
 ggplot() + 
-  geom_histogram(mapping = aes(preds), bins = 10) + # set bins 
+  geom_histogram(mapping = aes(preds), bins = 15) + # set bins 
   theme_minimal()
 ```
 Since we assumed our data are normal, we want to see an approximately normal distribution of predicted values.
@@ -253,7 +261,7 @@ Since we assumed our data are normal, we want to see an approximately normal dis
 ### Histogram of Residuals
 ```{r d2}
 ## extract residuals and plot
-resids <- residuals(bm1)
+resids <- residuals(topmod2)
 ggplot() + 
   geom_histogram(mapping = aes(resids), bins = 20) + 
   theme_minimal()
@@ -263,12 +271,10 @@ Since we assumed our data are normal, we want to see an approximately normal dis
 ### Model Coefficients
 ```{r d3}
 ## extract coeffs and random effects
-coef(bm1) # this include fixed and random effects
-ranef_obs <- ranef(bm1)$Observer # observer random effect only
-ranef_pl <- ranef(bm1)$Plot # plot random effect only
+coef(topmod2) # this include fixed and random effects
+ranef_pl <- ranef(topmod2)$Plot # plot random effect only
 
 ## look at data going into random effects
-table(SCMUdf$Observer)
 table(SCMUdf$Plot)
 ```
 We can extract our model coefficients (for fixed and random effects) and look at them. 
@@ -283,16 +289,16 @@ qqline(resids)
 qqnorm(unlist(ranef_pl), main = "QQ plot (Plot RE)", las = 1, pch = 16)
 qqline(unlist(ranef_pl))
 
-# qq Observer RE
-qqnorm(unlist(ranef_obs), main = "QQ plot (Observer RE)", las = 1, pch = 16)
-qqline(unlist(ranef_obs))
+# # qq Observer RE
+# qqnorm(unlist(ranef_obs), main = "QQ plot (Observer RE)", las = 1, pch = 16)
+# qqline(unlist(ranef_obs))
 ```
 We want our points to fall approximately on the diagonal lines. 
 
 ### Fitted v Residuals
 ```{r d5}
 ## plot residuals versus fitted values
-yh <- fitted(bm1)
+yh <- fitted(topmod2)
 plot(yh, resids, las = 1, pch = 16,
      xlab = "Fitted", ylab = "Residuals",
      main = "Residuals vs fitted")
@@ -413,7 +419,7 @@ https://qerm514.github.io/website/homework/week_03/hw_03_diagnostics_key.pdf
 Calculate the studentized residuals to look for outliers
 ```{r outliers}
 ## get studentized residuals
-(stud_e <- rstudent(bm1))
+(stud_e <- rstudent(topmod2))
 
 ## get sample size
 n <- nrow(SCMUdf)
@@ -461,22 +467,39 @@ CI.hi <- pred + std.err*1.96
 
 ##SJC added - here we are doing model selection and calculating Akaike weights 
 ##model1
-bm1 <- lmer(Size ~ EggOrder + BEUTI + NPGO + ONI + (1 | Observer) + (1 | Plot), data = SCMUdf, REML = TRUE)
-##model2
-bm2 <- lmer(Size ~ EggOrder + ANCHL + BEUTI + ONI + (1 | Observer) + (1 | Plot), data = SCMUdf, REML = TRUE)
-##model3
-bm3 <- lmer(Size ~ EggOrder + ANCHL + BEUTI + SST + (1 | Observer) + (1 | Plot), data = SCMUdf, REML = TRUE)
+# bm1 <- lmer(Size ~ EggOrder + BEUTI + NPGO + ONI + (1 | Observer) + (1 | Plot), data = SCMUdf, REML = TRUE)
+# ##model2
+# bm2 <- lmer(Size ~ EggOrder + ANCHL + BEUTI + ONI + (1 | Observer) + (1 | Plot), data = SCMUdf, REML = TRUE)
+# ##model3
+# bm3 <- lmer(Size ~ EggOrder + ANCHL + BEUTI + SST + (1 | Observer) + (1 | Plot), data = SCMUdf, REML = TRUE)
+# 
+# AIC.tab <- matrix(NA,nrow = 3, ncol = 3)
+# AIC.tab[1,1] <- extractAIC(bm1)[2]
+# AIC.tab[2,1] <- extractAIC(bm2)[2]
+# AIC.tab[3,1] <- extractAIC(bm3)[2]
+# AIC.tab[,2] <- AIC.tab[,1] - min(AIC.tab[,1])
+# AIC.tab[,3] <- exp(-0.5*AIC.tab[,2])/(sum(exp(-0.5*AIC.tab[,2])))
 
-AIC.tab <- matrix(NA,nrow = 3, ncol = 3)
-AIC.tab[1,1] <- extractAIC(bm1)[2]
-AIC.tab[2,1] <- extractAIC(bm2)[2]
-AIC.tab[3,1] <- extractAIC(bm3)[2]
+
+#new model1
+topmod <- lmer(Size ~ EggOrder + BEUTI + NPGO + (1 | Plot), data = SCMUdf, REML = TRUE)
+#new model2
+topmod2 <- lmer(Size ~ EggOrder + BEUTI + ONI + SST + (1 | Plot), data = SCMUdf, REML = TRUE)
+
+AIC.tab <- matrix(NA,nrow = 2, ncol = 3)
+AIC.tab[1,1] <- extractAIC(topmod)[2]
+AIC.tab[2,1] <- extractAIC(topmod2)[2]
 AIC.tab[,2] <- AIC.tab[,1] - min(AIC.tab[,1])
 AIC.tab[,3] <- exp(-0.5*AIC.tab[,2])/(sum(exp(-0.5*AIC.tab[,2])))
+
 ```
 
 # Prediction
 ```{r predict}
+
+topmod <- lmer(Size ~ EggOrder + BEUTI + NPGO + (1 | Plot), data = SCMUdf, REML = TRUE)
+
+topmod2 <- lmer(Size ~ EggOrder + BEUTI + ONI + SST + (1 | Plot), data = SCMUdf, REML = TRUE)
 
 #we want predictions with all predictors but one held constant, and then we'll do this one-at-a-time for each of the predictors
 # this will allow us to produce nice plots looking at the marginal effect of each predictor 
@@ -492,55 +515,199 @@ SCMU.null$ANCHL <- mean(SCMUdf$ANCHL)
 SCMU.null$PDO <- mean(SCMUdf$PDO)
 SCMU.null$SST <- mean(SCMUdf$SST)
 #I'm pretty sure you need some values of plot and observer but it doesn't matter which ones because we're not going to condition on these
-SCMU.null$Plot <- sample(SCMUdf$Plot,200,replace = TRUE)
-SCMU.null$Observer <- sample(SCMUdf$Observer,200,replace = TRUE)
 
+SCMU.null$Plot <- sample(SCMUdf$Plot,200,replace = TRUE)
+#SCMU.null$Observer <- sample(SCMUdf$Observer,200,replace = TRUE)
+
+```
+
+
+
+```{r predict BEUTI}
 #then vary just one predictor at a time for prediction. For example, create the dataset SCMU.BEUTI that will be used for predictions where the only thing that values is BEUTI 
 SCMU.BEUTI <- SCMU.null
 SCMU.BEUTI$BEUTI <- rep(seq(from = min(SCMUdf$BEUTI),to = max(SCMUdf$BEUTI),length.out = 100),2)
 
 #PREDICT FOR SCMU.BEUTI
-#Pull together the random effects (do we want the models with )
-obs.sd.1 <- as.data.frame(VarCorr(bm1))$sdcor[1]
-plot.sd.1 <- as.data.frame(VarCorr(bm1))$sdcor[2]
-resid.sd.1 <- as.data.frame(VarCorr(bm1))$sdcor[3]
-obs.sd.2 <- as.data.frame(VarCorr(bm2))$sdcor[1]
-plot.sd.2 <- as.data.frame(VarCorr(bm2))$sdcor[2]
-resid.sd.2 <- as.data.frame(VarCorr(bm2))$sdcor[3]
-obs.sd.3 <- as.data.frame(VarCorr(bm3))$sdcor[1]
-plot.sd.3 <- as.data.frame(VarCorr(bm3))$sdcor[2]
-resid.sd.3 <- as.data.frame(VarCorr(bm3))$sdcor[3]
+#Pull together the random effects (do we want the models with)
+
+# obs.sd.1 <- as.data.frame(VarCorr(bm1))$sdcor[1]
+# plot.sd.1 <- as.data.frame(VarCorr(bm1))$sdcor[2]
+# resid.sd.1 <- as.data.frame(VarCorr(bm1))$sdcor[3]
+# 
+# obs.sd.2 <- as.data.frame(VarCorr(bm2))$sdcor[1]
+# plot.sd.2 <- as.data.frame(VarCorr(bm2))$sdcor[2]
+# resid.sd.2 <- as.data.frame(VarCorr(bm2))$sdcor[3]
+# 
+# obs.sd.3 <- as.data.frame(VarCorr(bm3))$sdcor[1]
+# plot.sd.3 <- as.data.frame(VarCorr(bm3))$sdcor[2]
+# resid.sd.3 <- as.data.frame(VarCorr(bm3))$sdcor[3]
+
+plot.sd.1 <- as.data.frame(VarCorr(topmod))$sdcor[1]
+resid.sd.1 <- as.data.frame(VarCorr(topmod))$sdcor[2]
+
+plot.sd.2 <- as.data.frame(VarCorr(topmod2))$sdcor[1]
+resid.sd.2 <- as.data.frame(VarCorr(topmod2))$sdcor[2]
+
 sims <- 1000
-pv <- matrix(nrow = sims, ncol = nrow(SCMU.BEUTI))
+
+# pv <- matrix(nrow = sims, ncol = nrow(SCMU.BEUTI))
+# for(i in 1:sims){
+#   #choose a model 
+#   model <- which(rmultinom(n = 1, size = 1,prob = c(AIC.tab[,3]))==1)
+#   if(model == 1){
+#     #we simulate conditioning on no specific random effects levels
+#     y <- unlist(simulate(bm1))
+#     bmod <- refit(bm1,y)
+#     pv[i,] <- predict(bmod, re.form = ~0, newdata = SCMU.BEUTI) + rnorm(1,0,sd=obs.sd.1) + rnorm(1,0,sd=plot.sd.1) + rnorm(1,0,sd=resid.sd.1)
+#   }
+#   if(model == 2){
+#     #we simulate conditioning on no specific random effects levels
+#     y <- unlist(simulate(bm2))
+#     bmod <- refit(bm2,y)
+#     pv[i,] <- predict(bmod, re.form = ~0, newdata = SCMU.BEUTI) + rnorm(1,0,sd=obs.sd.2) + rnorm(1,0,sd=plot.sd.2) + rnorm(1,0,sd=resid.sd.2)
+#   }
+#   if(model == 3){
+#     #we simulate conditioning on no specific random effects levels
+#     y <- unlist(simulate(bm3))
+#     bmod <- refit(bm3,y)
+#     pv[i,] <- predict(bmod, re.form = ~0, newdata = SCMU.BEUTI) + rnorm(1,0,sd=obs.sd.3) + rnorm(1,0,sd=plot.sd.3) + rnorm(1,0,sd=resid.sd.3)
+#   }
+# }  
+
+## Marcela tried updating
+pv.BEUTI <- matrix(nrow = sims, ncol = nrow(SCMU.BEUTI))
 for(i in 1:sims){
   #choose a model 
   model <- which(rmultinom(n = 1, size = 1,prob = c(AIC.tab[,3]))==1)
   if(model == 1){
     #we simulate conditioning on no specific random effects levels
-    y <- unlist(simulate(bm1))
-    bmod <- refit(bm1,y)
-    pv[i,] <- predict(bmod, re.form = ~0, newdata = SCMU.BEUTI) + rnorm(1,0,sd=obs.sd.1) + rnorm(1,0,sd=plot.sd.1) + rnorm(1,0,sd=resid.sd.1)
+    y <- unlist(simulate(topmod))
+    bmod <- refit(topmod2,y)
+    pv.BEUTI[i,] <- predict(bmod, re.form = ~0, newdata = SCMU.BEUTI) + rnorm(1,0,sd=plot.sd.1) + rnorm(1,0,sd=resid.sd.1)
   }
   if(model == 2){
     #we simulate conditioning on no specific random effects levels
-    y <- unlist(simulate(bm2))
-    bmod <- refit(bm2,y)
-    pv[i,] <- predict(bmod, re.form = ~0, newdata = SCMU.BEUTI) + rnorm(1,0,sd=obs.sd.2) + rnorm(1,0,sd=plot.sd.2) + rnorm(1,0,sd=resid.sd.2)
-  }
-  if(model == 3){
-    #we simulate conditioning on no specific random effects levels
-    y <- unlist(simulate(bm3))
-    bmod <- refit(bm3,y)
-    pv[i,] <- predict(bmod, re.form = ~0, newdata = SCMU.BEUTI) + rnorm(1,0,sd=obs.sd.3) + rnorm(1,0,sd=plot.sd.3) + rnorm(1,0,sd=resid.sd.3)
+    y <- unlist(simulate(topmod2))
+    bmod <- refit(topmod2,y)
+    pv.BEUTI[i,] <- predict(bmod, re.form = ~0, newdata = SCMU.BEUTI) + rnorm(1,0,sd=plot.sd.2) + rnorm(1,0,sd=resid.sd.2)
   }
 }  
 
+
 ##SJC added - you can do plots like this of the predictions and 95% CIs against the individual predictors 
-plot(SCMU.BEUTI$BEUTI[1:100],y = apply(pv,2,mean)[1:100],xlab = "BEUTI",ylab = "Egg Size",type = "l",ylim = c(1500,2500))
-lines(SCMU.BEUTI$BEUTI[1:100],y = apply(pv,2,function(x)quantile(x,probs= 0.025))[1:100],lty=2)
-lines(SCMU.BEUTI$BEUTI[1:100],y = apply(pv,2,function(x)quantile(x,probs= 0.975))[1:100],lty=2)
+plot(SCMU.BEUTI$BEUTI[1:100],y = apply(pv.BEUTI,2,mean)[1:100],xlab = "BEUTI",ylab = "Egg Size",type = "l",ylim = c(1500,2500))
+lines(SCMU.BEUTI$BEUTI[1:100],y = apply(pv.BEUTI,2,function(x)quantile(x,probs= 0.025))[1:100],lty=2)
+lines(SCMU.BEUTI$BEUTI[1:100],y = apply(pv.BEUTI,2,function(x)quantile(x,probs= 0.975))[1:100],lty=2)
   
 ```
 
+```{r predict NPGO}
+
+SCMU.NPGO <- SCMU.null
+SCMU.NPGO$NPGO <- rep(seq(from = min(SCMUdf$NPGO),to = max(SCMUdf$NPGO),length.out = 100),2)
+
+plot.sd.1 <- as.data.frame(VarCorr(topmod))$sdcor[1]
+resid.sd.1 <- as.data.frame(VarCorr(topmod))$sdcor[2]
+
+plot.sd.2 <- as.data.frame(VarCorr(topmod2))$sdcor[1]
+resid.sd.2 <- as.data.frame(VarCorr(topmod2))$sdcor[2]
+
+sims <- 1000
+
+pv.NPGO <- matrix(nrow = sims, ncol = nrow(SCMU.NPGO))
+for(i in 1:sims){
+  #choose a model 
+  model <- which(rmultinom(n = 1, size = 1,prob = c(AIC.tab[,3]))==1)
+  if(model == 1){
+    #we simulate conditioning on no specific random effects levels
+    y <- unlist(simulate(topmod))
+    bmod <- refit(topmod2,y)
+    pv.NPGO[i,] <- predict(bmod, re.form = ~0, newdata = SCMU.NPGO) + rnorm(1,0,sd=plot.sd.1) + rnorm(1,0,sd=resid.sd.1)
+  }
+  if(model == 2){
+    #we simulate conditioning on no specific random effects levels
+    y <- unlist(simulate(topmod2))
+    bmod <- refit(topmod2,y)
+    pv.NPGO[i,] <- predict(bmod, re.form = ~0, newdata = SCMU.NPGO) + rnorm(1,0,sd=plot.sd.2) + rnorm(1,0,sd=resid.sd.2)
+  }
+}  
 
 
+plot(SCMU.NPGO$NPGO[1:100],y = apply(pv.NPGO,2,mean)[1:100],xlab = "NPGO",ylab = "Egg Size",type = "l",ylim = c(1500,2500))
+lines(SCMU.NPGO$NPGO[1:100],y = apply(pv.NPGO,2,function(x)quantile(x,probs= 0.025))[1:100],lty=2)
+lines(SCMU.NPGO$NPGO[1:100],y = apply(pv.NPGO,2,function(x)quantile(x,probs= 0.975))[1:100],lty=2)
+  
+```
+```{r predict ONI}
+
+SCMU.ONI <- SCMU.null
+SCMU.ONI$ONI <- rep(seq(from = min(SCMUdf$ONI),to = max(SCMUdf$ONI),length.out = 100),2)
+
+plot.sd.1 <- as.data.frame(VarCorr(topmod))$sdcor[1]
+resid.sd.1 <- as.data.frame(VarCorr(topmod))$sdcor[2]
+
+plot.sd.2 <- as.data.frame(VarCorr(topmod2))$sdcor[1]
+resid.sd.2 <- as.data.frame(VarCorr(topmod2))$sdcor[2]
+
+sims <- 1000
+
+pv.ONI <- matrix(nrow = sims, ncol = nrow(SCMU.ONI))
+for(i in 1:sims){
+  #choose a model 
+  model <- which(rmultinom(n = 1, size = 1,prob = c(AIC.tab[,3]))==1)
+  if(model == 1){
+    #we simulate conditioning on no specific random effects levels
+    y <- unlist(simulate(topmod))
+    bmod <- refit(topmod2,y)
+    pv.ONI[i,] <- predict(bmod, re.form = ~0, newdata = SCMU.ONI) + rnorm(1,0,sd=plot.sd.1) + rnorm(1,0,sd=resid.sd.1)
+  }
+  if(model == 2){
+    #we simulate conditioning on no specific random effects levels
+    y <- unlist(simulate(topmod2))
+    bmod <- refit(topmod2,y)
+    pv.ONI[i,] <- predict(bmod, re.form = ~0, newdata = SCMU.ONI) + rnorm(1,0,sd=plot.sd.2) + rnorm(1,0,sd=resid.sd.2)
+  }
+}  
+
+plot(SCMU.ONI$ONI[1:100],y = apply(pv.ONI,2,mean)[1:100],xlab = "ONI",ylab = "Egg Size",type = "l",ylim = c(1500,2500))
+lines(SCMU.ONI$ONI[1:100],y = apply(pv.ONI,2,function(x)quantile(x,probs= 0.025))[1:100],lty=2)
+lines(SCMU.ONI$ONI[1:100],y = apply(pv.ONI,2,function(x)quantile(x,probs= 0.975))[1:100],lty=2)
+  
+```
+```{r predict SST}
+
+SCMU.SST <- SCMU.null
+SCMU.SST$SST <- rep(seq(from = min(SCMUdf$SST),to = max(SCMUdf$SST),length.out = 100),2)
+
+plot.sd.1 <- as.data.frame(VarCorr(topmod))$sdcor[1]
+resid.sd.1 <- as.data.frame(VarCorr(topmod))$sdcor[2]
+
+plot.sd.2 <- as.data.frame(VarCorr(topmod2))$sdcor[1]
+resid.sd.2 <- as.data.frame(VarCorr(topmod2))$sdcor[2]
+
+sims <- 1000
+
+pv.SST <- matrix(nrow = sims, ncol = nrow(SCMU.SST))
+for(i in 1:sims){
+  #choose a model 
+  model <- which(rmultinom(n = 1, size = 1,prob = c(AIC.tab[,3]))==1)
+  if(model == 1){
+    #we simulate conditioning on no specific random effects levels
+    y <- unlist(simulate(topmod))
+    bmod <- refit(topmod2,y)
+    pv.SST[i,] <- predict(bmod, re.form = ~0, newdata = SCMU.SST) + rnorm(1,0,sd=plot.sd.1) + rnorm(1,0,sd=resid.sd.1)
+  }
+  if(model == 2){
+    #we simulate conditioning on no specific random effects levels
+    y <- unlist(simulate(topmod2))
+    bmod <- refit(topmod2,y)
+    pv.SST[i,] <- predict(bmod, re.form = ~0, newdata = SCMU.SST) + rnorm(1,0,sd=plot.sd.2) + rnorm(1,0,sd=resid.sd.2)
+  }
+}  
+
+plot(SCMU.SST$SST[1:100],y = apply(pv.SST,2,mean)[1:100],xlab = "SST",ylab = "Egg Size",type = "l",ylim = c(1500,2500))
+lines(SCMU.SST$SST[1:100],y = apply(pv.SST,2,function(x)quantile(x,probs= 0.025))[1:100],lty=2)
+lines(SCMU.SST$SST[1:100],y = apply(pv.SST,2,function(x)quantile(x,probs= 0.975))[1:100],lty=2)
+  
+```
