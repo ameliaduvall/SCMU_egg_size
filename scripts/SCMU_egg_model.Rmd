@@ -711,3 +711,26 @@ lines(SCMU.SST$SST[1:100],y = apply(pv.SST,2,function(x)quantile(x,probs= 0.025)
 lines(SCMU.SST$SST[1:100],y = apply(pv.SST,2,function(x)quantile(x,probs= 0.975))[1:100],lty=2)
   
 ```
+
+
+```{r combine plots}
+parmfrow=c(2, 2)
+
+plot(SCMU.BEUTI$BEUTI[1:100],y = apply(pv.BEUTI,2,mean)[1:100],xlab = "BEUTI",ylab = "Egg Size",type = "l",ylim = c(1500,2500))
+lines(SCMU.BEUTI$BEUTI[1:100],y = apply(pv.BEUTI,2,function(x)quantile(x,probs= 0.025))[1:100],lty=2)
+lines(SCMU.BEUTI$BEUTI[1:100],y = apply(pv.BEUTI,2,function(x)quantile(x,probs= 0.975))[1:100],lty=2)
+
+plot(SCMU.NPGO$NPGO[1:100],y = apply(pv.NPGO,2,mean)[1:100],xlab = "NPGO",ylab = "Egg Size",type = "l",ylim = c(1500,2500))
+lines(SCMU.NPGO$NPGO[1:100],y = apply(pv.NPGO,2,function(x)quantile(x,probs= 0.025))[1:100],lty=2)
+lines(SCMU.NPGO$NPGO[1:100],y = apply(pv.NPGO,2,function(x)quantile(x,probs= 0.975))[1:100],lty=2)
+  
+plot(SCMU.ONI$ONI[1:100],y = apply(pv.ONI,2,mean)[1:100],xlab = "ONI",ylab = "Egg Size",type = "l",ylim = c(1500,2500))
+lines(SCMU.ONI$ONI[1:100],y = apply(pv.ONI,2,function(x)quantile(x,probs= 0.025))[1:100],lty=2)
+lines(SCMU.ONI$ONI[1:100],y = apply(pv.ONI,2,function(x)quantile(x,probs= 0.975))[1:100],lty=2)
+  
+plot(SCMU.SST$SST[1:100],y = apply(pv.SST,2,mean)[1:100],xlab = "SST",ylab = "Egg Size",type = "l",ylim = c(1500,2500))
+lines(SCMU.SST$SST[1:100],y = apply(pv.SST,2,function(x)quantile(x,probs= 0.025))[1:100],lty=2)
+lines(SCMU.SST$SST[1:100],y = apply(pv.SST,2,function(x)quantile(x,probs= 0.975))[1:100],lty=2)
+  
+```
+
