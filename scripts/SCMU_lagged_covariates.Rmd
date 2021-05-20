@@ -513,7 +513,7 @@ NPGO_nolag_AIC < NPGO_lag_AIC
 ## What is the delta AIC?
 NPGO_nolag_AIC - NPGO_lag_AIC
 ```
-The non-lagged NPGO data has more support. There is support for a non-lagged NPGO data from the entire year (12 months). 
+The lagged NPGO data has more support. There is support for a lagged NPGO data from the entire year (12 months). 
 
 
 

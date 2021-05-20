@@ -306,7 +306,7 @@ Time span: 1950-01-01T00:00:00Z - 2019-07-01T00:00:00Z\
 This article also explains NPGO well: http://www.o3d.org/npgo/
 See also this paper: https://agupubs.onlinelibrary.wiley.com/doi/pdf/10.1029/2011GL049966
 
-For NPGO, we used data from the entire year (12 month) with a one-year lag. 
+For NPGO, we used data from the entire year (12 month) with no lag.
 ```{r NPGO}
 NPGOraw <- read_csv(here("data", "covariates", "cciea_OC_NPGO_712b_5843_9069.csv"))
 
@@ -314,18 +314,15 @@ NPGOraw <- read_csv(here("data", "covariates", "cciea_OC_NPGO_712b_5843_9069.csv
 NPGO <- NPGOraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
-  mutate(Year = year(time),
-         Month = month(time)) %>%
+  mutate(Year = year(time)) %>%
   mutate(npgo = as.numeric(NPGO)) %>%
   group_by(Year) %>%
   summarise(NPGO = mean(npgo, na.rm = TRUE)) %>%
   dplyr::select(Year, NPGO) %>%
-  filter(Year >= 2008 & Year <= 2016) %>%
-  mutate(NPGO_lag = scale(NPGO),
-         TrueYear = Year,
-         Year = TrueYear + 1) %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  mutate(NPGO_nolag = scale(NPGO)) %>%
   arrange(Year) %>%
-  dplyr::select(Year, NPGO_lag)
+  as_tibble()
 
 # NPGO_full <- NPGOraw %>%
 #   slice(-1) %>%
@@ -516,12 +513,14 @@ We selected +/- 0.65 as our cutoff for correlation. The following covariates sho
 <!-- 4. ONI and PDO -->
 <!-- 5. ONI and SST -->
 <!-- 6. PDO and SST -->
+
 1. ANCHL and PDO
-2. ANCL and SST
+2. ANCHL and SST
 3. ANCHL and NPGO
 4. BEUTI and PDO
-5. NPGO and PDO
-6. PDO and SST
+5. NPGO and ONI
+6. NPGO and SST
+7. NPGO and PDO
 
 # Number of Candidate Models
 
@@ -542,18 +541,20 @@ full_set <- expand.grid(predictors) # 64 combinations
 #               full_set$ONI + full_set$PDO == 2 |
 #               full_set$ONI + full_set$SST == 2 |
 #               full_set$PDO + full_set$SST == 2 ) # 45 models
+
 ii <- which(full_set$ANCHL + full_set$PDO == 2 |
               full_set$ANCHL + full_set$SST == 2 |
               full_set$ANCHL + full_set$NPGO == 2 |
               full_set$BEUTI + full_set$PDO == 2 |
-              full_set$NPGO + full_set$PDO == 2 |
-              full_set$PDO + full_set$SST == 2) # 42 models
+              full_set$NPGO + full_set$ONI == 2 |
+              full_set$NPGO + full_set$SST == 2 |
+              full_set$NPGO + full_set$PDO == 2) # 46 models
 
 ## create reduced set of models and convert to a matrix for easier indexing
-use_set <- as.matrix(full_set[-ii,]) # 22 models
+use_set <- as.matrix(full_set[-ii,]) # 18 models
 
 ## number of models in set
-(n_mods <- nrow(use_set)) # 22 models out of potential 64
+(n_mods <- nrow(use_set)) # 18 models out of potential 64
 ```
 
 # Final Covariates Plot
@@ -580,5 +581,5 @@ ggplot(data = covarsplot, aes(x = year, y = value, color = covariate)) +
 finalcovars <- covars %>%
   mutate(Year = 2009:2017) %>%
   select(Year, everything())
-# write.csv(x = finalcovars, file = here("data", "covariates", "covars.csv")) 
+#write.csv(x = finalcovars, file = here("data", "covariates", "covars.csv")) 
 ```
