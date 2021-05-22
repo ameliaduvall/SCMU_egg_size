@@ -1,5 +1,5 @@
 ---
-title: "Scripps's Murrelet - Lagged Covariates"
+title: "Single Covariate Model Selection for Scripps's Murrelet Linear Mixed Model"
 author: "Amelia J. DuVall & Marcela Todd"
 date: "5/16/2021"
 output: pdf_document
@@ -23,7 +23,7 @@ library(sjPlot)
 This is `r paste0("v.", (Sys.Date()))`
 
 # Introduction
-This document tests the inclusion of lagged environmental covariates in the Scripps's Murrelet egg size model. We initially selected the time period January-June for covariates available at a monthly sampling rate due to the overlap with the murrelet breeding season. However, we felt it was pertinent to tests lags on all environmental covariate data since the effects of some environmental conditions may take time to manifest in terms of prey availability for murrelets during the breeding season. For each environmental covariate, we used single covariate models to test the support of a non-lagged covariate (2009-2017 data) versus a one-year lagged covariate (2008-2016 data) via AIC model selection. Most covariates were available at a monthly sampling rate, with the exception of larval anchovy. For covariates at a monthly sampling rate, we also tested a "full" covariate model with monthly sampling data averaged across 12 months versus a "half" covariate model with monthly sampling data averaged across 6 months (January-June).
+This document tests the inclusion of lagged and temporally restricted environmental covariates for the Scripps's Murrelet egg size model (see SCMU_egg_model.Rmd). We initially selected the time period January-June for covariates available at a monthly sampling rate due to the overlap with the murrelet breeding season. However, we felt it was pertinent to tests lags on all environmental covariate data since the effects of some environmental conditions may take time to manifest in terms of prey availability for murrelets during the breeding season. For each environmental covariate, we used single covariate models to test the support of a non-lagged covariate (2009-2017 data) versus a one-year lagged covariate (2008-2016 data) via AIC model selection. Most covariates were available at a monthly sampling rate, with the exception of larval anchovy. For covariates at a monthly sampling rate, we also tested a "full" covariate model with monthly sampling data averaged across 12 months versus a "half" covariate model with monthly sampling data averaged across 6 months (January-June).
 
 We tested 6 covariates: 
 1. Larval anchovy - SCC (ANCHL)  
@@ -45,9 +45,15 @@ egg <- read.csv(here("data", "SCMU_egg_data.csv"))%>%
 # Environmental Covariates
 
 ## ANCHL
+ANCHL sampling data is only available at a yearly sampling interval. 
 ```{r anchovyl}
+## load data
 ANCHLraw  <- read.csv(here("data", "covariates", "cciea_EI_FBS_2020_a29e_1fd0_409d.csv"), na.strings = "NaN")
 
+## are there NAs in the data?
+sum(is.na(ANCHLraw$relative_abundance))
+
+## clean data and filter down to years 2008-2017
 ANCHL <- ANCHLraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
@@ -57,11 +63,13 @@ ANCHL <- ANCHLraw %>%
   filter(Year >= 2008 & Year <= 2017) %>%
   dplyr::select(Year, ANCHL) 
 
+## create no lagged dataset from 2009-2017 and scale values
 ANCHL_nolag <- ANCHL %>%
   filter(Year >= 2009 & Year <= 2017) %>%
   mutate(ANCHL_nolag = scale(ANCHL)) %>%
   dplyr::select(Year, ANCHL_nolag)
 
+## created one-year lagged dataset from 2008-2016 and scale values
 ANCHL_lag <- ANCHL %>%
   filter(Year >= 2008 & Year <= 2016) %>%
   mutate(TrueYear = Year,
@@ -69,6 +77,7 @@ ANCHL_lag <- ANCHL %>%
          ANCHL_lag = scale(ANCHL)) %>%
   dplyr::select(Year, ANCHL_lag)
 
+## join no-lag and lag datasets
 ANCHL1 <- full_join(ANCHL_nolag, ANCHL_lag, by = "Year")
 
 ## join with egg size data
@@ -88,14 +97,17 @@ ANCHL_nolag_AIC < ANCHL_lag_AIC
 ## What is the delta AIC?
 ANCHL_lag_AIC - ANCHL_nolag_AIC
 ```
-There is support to use the non-lagged ANCHL data. 
+There is support to use the non-lagged ANCHL data since the lagged data is delta AIC > 2. 
 
 ## BEUTI
 First, we tested against using data from the entire year versus from January-June. 
 ```{r BEUTI1}
 BEUTIraw <- read_csv(here("data", "covariates", "cciea_OC_BEUTI_784c_ef9f_af6f.csv"))
 
-## Averaged over all 12 months
+## are there NAs in the data?
+sum(is.na(BEUTIraw$beuti))
+
+## Average sampling data by year over all 12 months and scale
 BEUTI_full <- BEUTIraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
@@ -106,9 +118,10 @@ BEUTI_full <- BEUTIraw %>%
   dplyr::select(Year, BEUTI) %>%
   filter(Year >= 2009 & Year <= 2017) %>%
   mutate(BEUTI_full = scale(BEUTI)) %>%
-  arrange(Year) 
+  arrange(Year) %>%
+  dplyr::select(Year, BEUTI_full)
 
-## Averaged for January-June only
+## Average sampling data by year for January-June only and scale
 BEUTI_half <- BEUTIraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
@@ -116,13 +129,13 @@ BEUTI_half <- BEUTIraw %>%
          Month = month(time)) %>%
   mutate(beuti = as.numeric(beuti)) %>%
   filter(Month == 1 | Month == 2 | Month == 3 |Month == 4 | Month == 5 | Month == 6) %>%
-    # filter(Month == 1 | Month == 2 | Month == 3 |Month == 4 | Month == 5) %>%
   group_by(Year) %>%
   summarise(BEUTI = mean(beuti, na.rm = TRUE)) %>%
   dplyr::select(Year, BEUTI) %>%
   filter(Year >= 2009 & Year <= 2017) %>%
   mutate(BEUTI_half = scale(BEUTI)) %>%
-  arrange(Year) 
+  arrange(Year) %>%
+  dplyr::select(Year, BEUTI_half)
 
 ## join 2 datasets together
 BEUTI1 <- full_join(BEUTI_full, BEUTI_half, by = "Year")
@@ -144,11 +157,11 @@ BEUTI_half_AIC < BEUTI_full_AIC
 ## What is the delta AIC?
 BEUTI_half_AIC - BEUTI_full_AIC
 ```
-Both models are supported. We selected the Jan-June model for ecological reasons.
+Both models are supported since they are within 2 delta AIC. 
 
-Then, using the top model, we tested a non-lagged versus one-year lagged dataset.
+Then, using the half-year model, we tested a non-lagged versus one-year lagged dataset.
 ```{r BEUTI2}
-## no lag, averaged for Jan-June (same as BEUTI_half above)
+## no lag, data averaged for Jan-June (same as BEUTI_half above) and scaled
 BEUTI_nolag <- BEUTIraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
@@ -164,7 +177,7 @@ BEUTI_nolag <- BEUTIraw %>%
   arrange(Year) %>%
   dplyr::select(Year, BEUTI_nolag)
 
-## one year lag, averaged for Jan-June
+## one year lag, data averaged for Jan-June and scaled
 BEUTI_lag <- BEUTIraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
@@ -202,12 +215,11 @@ BEUTI_nolag_AIC < BEUTI_lag_AIC
 ## What is the delta AIC?
 BEUTI_nolag_AIC - BEUTI_lag_AIC
 ```
-There is more support for a one-year lagged BEUTI from January-June. 
+There is more support for a one-year lagged BEUTI with the half-year data versus a no-lag BEUTI with the half year data. 
 
-Just to check, let's compare a full one-year lagged BEUTI versus half one-year lagged BEUTI.
+Next, we compared a full one-year lagged BEUTI versus half one-year lagged BEUTI.
 ```{r BEUTI3}
-## one year lag, all 12 months
-
+## one year lag, averaged across 12 months and scaled
 BEUTI_full_lag <- BEUTIraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
@@ -223,7 +235,7 @@ BEUTI_full_lag <- BEUTIraw %>%
   arrange(Year) %>%
   dplyr::select(Year, BEUTI_full_lag)
 
-## one year lag, averaged for Jan-June (same above BEUTI_lag above)
+## one year lag, averaged for Jan-June (same above BEUTI_lag above) and scaled
 BEUTI_half_lag <- BEUTIraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
@@ -260,7 +272,6 @@ BEUTI_half_lag_AIC < BEUTI_full_lag_AIC
 
 ## What is the delta AIC?
 BEUTI_full_lag_AIC - BEUTI_half_lag_AIC
-
 ```
 Both models are supported (which is what we would expect based on the first two tests). There is support to use 12-month averaged lagged data OR 6-month averaged lagged data for BEUTI. 
 
@@ -269,7 +280,10 @@ First, we tested against using data from the entire year versus from January-Jun
 ```{r sst1}
 SSTraw <- read_csv(here("data", "covariates", "cciea_OC_SST3_91cf_d165_213f-46025.csv"))
 
-## Averaged over all 12 months
+## are there NAs in the data?
+sum(is.na(SSTraw$SST))
+
+## Averaged over all 12 months and scaled
 SST_full <- SSTraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
@@ -281,9 +295,10 @@ SST_full <- SSTraw %>%
   dplyr::select(Year, SST) %>%
   filter(Year >= 2009 & Year <= 2017) %>%
   mutate(SST_full = scale(SST)) %>%
-  arrange(Year) 
+  arrange(Year) %>%
+  dplyr::select(Year, SST_full)
 
-## Averaged for January-June only
+## Averaged for January-June only and scaled
 SST_half <- SSTraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
@@ -296,7 +311,8 @@ SST_half <- SSTraw %>%
   dplyr::select(Year, SST) %>%
   filter(Year >= 2009 & Year <= 2017) %>%
   mutate(SST_half = scale(SST)) %>%
-  arrange(Year) 
+  arrange(Year) %>%
+  dplyr::select(Year, SST_half)
 
 ## join 2 datasets together
 SST1 <- full_join(SST_full, SST_half, by = "Year")
@@ -316,13 +332,13 @@ SST_half_AIC <- AIC(SST_half_mod)
 SST_half_AIC < SST_full_AIC
 
 ## What is the delta AIC?
-SST_full_AIC - SST_half_AIC
+SST_half_AIC - SST_full_AIC
 ```
-The full SST model has slightly more support.
+The full-year SST model has more support than the half-year model.
 
 Then, using the top model, we tested a non-lagged versus one-year lagged dataset.
 ```{r SST2}
-## no lag, averaged for 12 months (same as SST_full above)
+## no lag, averaged for 12 months (same as SST_full above) and scaled
 SST_nolag <- SSTraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
@@ -334,9 +350,10 @@ SST_nolag <- SSTraw %>%
   dplyr::select(Year, SST) %>%
   filter(Year >= 2009 & Year <= 2017) %>%
   mutate(SST_nolag = scale(SST)) %>%
-  arrange(Year) 
+  arrange(Year) %>%
+  dplyr::select(Year, SST_nolag)
 
-## one year lag, averaged for 12 months
+## one year lag, averaged for 12 months and scaled
 SST_lag <- SSTraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
@@ -371,16 +388,19 @@ SST_lag_AIC <- AIC(SST_lag_mod)
 SST_nolag_AIC < SST_lag_AIC
 
 ## What is the delta AIC?
-SST_nolag_AIC - SST_lag_AIC
+SST_lag_AIC - SST_nolag_AIC
 ```
-The non-lagged SST data has more support. There is support for a non-lagged SST data from the entire year (12 months). 
+The non-lagged SST data has more support than the one-year lagged SST data. There is support for a non-lagged SST data from the entire year (12 months). 
 
 ## NPGO
-First, we tested three single covariate models: 1) data averaged from the entire year, 2) data from January-June, and 3) data from December-March (as supported by Chenillat et al. 2012, "the statistical relationship between NPGO index and nearshore wind variability (most upwelling favorable) along the U.S. West coast is strongest in the wintertime (December to March) off Central California"). 
+First, we tested three single covariate models: 1) data averaged from the entire year, 2) data averaged from January-June, and 3) data averaged from December-March (as supported by Chenillat et al. 2012, "the statistical relationship between NPGO index and nearshore wind variability (most upwelling favorable) along the U.S. West coast is strongest in the wintertime (December to March) off Central California"). 
 ```{r NPGO}
 NPGOraw <- read_csv(here("data", "covariates", "cciea_OC_NPGO_712b_5843_9069.csv"))
 
-## Averaged over all 12 months
+## are there NAs in the data?
+sum(is.na(NPGOraw$NPGO)) # only the first row, which does not contain data
+
+## Averaged over all 12 months and scaled
 NPGO_full <- NPGOraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
@@ -392,9 +412,9 @@ NPGO_full <- NPGOraw %>%
   filter(Year >= 2009 & Year <= 2017) %>%
   mutate(NPGO_full = scale(NPGO)) %>%
   arrange(Year) %>%
-  as_tibble()
+  dplyr::select(Year, NPGO_full)
 
-## Averaged for January-June only
+## Averaged for January-June only and scaled
 NPGO_half <- NPGOraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
@@ -407,9 +427,10 @@ NPGO_half <- NPGOraw %>%
   dplyr::select(Year, NPGO) %>%
   filter(Year >= 2009 & Year <= 2017) %>%
   mutate(NPGO_half = scale(NPGO)) %>%
-  arrange(Year) 
+  arrange(Year) %>%
+  dplyr::select(Year, NPGO_half)
 
-## Averaged for December-March only
+## Averaged for December-March only and scaled
 NPGO_delay <- NPGOraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
@@ -426,8 +447,8 @@ NPGO_delay <- NPGOraw %>%
   summarise(NPGO = mean(npgo, na.rm = TRUE)) %>%
   mutate(Year = 2009:2017) %>%
   mutate(NPGO_delay = scale(NPGO)) %>%
-  dplyr::select(Year, NPGO_delay) %>%
-  arrange(Year) 
+  arrange(Year) %>%
+  dplyr::select(Year, NPGO_delay)
 
 ## join 2 datasets together
 NPGO1 <- full_join(NPGO_full, NPGO_half, by = "Year")
@@ -450,7 +471,7 @@ NPGO_delay_AIC <- AIC(NPGO_delay_mod)
 NPGO_full_AIC < NPGO_half_AIC
 
 ## What is the delta AIC?
-NPGO_full_AIC - NPGO_half_AIC
+NPGO_half_AIC - NPGO_full_AIC
 
 ## True or False, is the delay NPGO model AIC smaller than the full NPGO model AIC?
 NPGO_delay_AIC < NPGO_full_AIC
@@ -462,7 +483,7 @@ The model that used all data from 12 months averaged for NPGO had the best fit.
 
 Then, using the full NPGO model, we tested a non-lagged versus one-year lagged dataset.
 ```{r NPGO2}
-## no lag, averaged for 12 months (same as NPGO_full above)
+## no lag, data averaged for 12 months (same as NPGO_full above) and scaled
 NPGO_nolag <- NPGOraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
@@ -474,9 +495,9 @@ NPGO_nolag <- NPGOraw %>%
   filter(Year >= 2009 & Year <= 2017) %>%
   mutate(NPGO_nolag = scale(NPGO)) %>%
   arrange(Year) %>%
-  as_tibble()
+  dplyr::select(Year, NPGO_nolag)
 
-## one year lag, averaged for 12 months
+## one year lag, data averaged for 12 months and scaled
 NPGO_lag <- NPGOraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
@@ -511,16 +532,19 @@ NPGO_lag_AIC <- AIC(NPGO_lag_mod)
 NPGO_nolag_AIC < NPGO_lag_AIC
 
 ## What is the delta AIC?
-NPGO_nolag_AIC - NPGO_lag_AIC
+NPGO_lag_AIC - NPGO_nolag_AIC
 ```
-The non-lagged NPGO data has more support. There is support for a non-lagged NPGO data from the entire year (12 months). 
-
-
+The non-lagged NPGO data has more support than the one-year lagged data. There is the most support for a non-lagged NPGO data from the entire year (12 months). 
 
 ## PDO
-```{r PDO}
+First, we tested against using data from the entire year versus from January-June. 
+```{r PDO1}
 PDOraw <- read_csv(here("data", "covariates", "cciea_OC_PDO_712b_5843_9069.csv"))
 
+## are there NAs in the data?
+sum(is.na(PDOraw$PDO)) # only the first row, which does not contain data
+
+## data averaged across entire year and scaled
 PDO_full <- PDOraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
@@ -530,11 +554,11 @@ PDO_full <- PDOraw %>%
   summarise(PDO = mean(pdo, na.rm = TRUE)) %>%
   dplyr::select(Year, PDO) %>%
   filter(Year >= 2009 & Year <= 2017) %>%
-   mutate(PDO_full = scale(PDO)) %>%
+  mutate(PDO_full = scale(PDO)) %>%
   arrange(Year) %>%
-  as_tibble()
+  dplyr::select(Year, PDO_full)
 
-## for January-June only
+## data averaged for January-June only and scaled
 PDO_half <- PDOraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
@@ -548,7 +572,7 @@ PDO_half <- PDOraw %>%
   filter(Year >= 2009 & Year <= 2017) %>%
   mutate(PDO_half= scale(PDO)) %>%
   arrange(Year) %>%
-  as_tibble()
+  dplyr::select(Year, PDO_half)
 
 ## join 2 datasets together
 PDO1 <- full_join(PDO_full, PDO_half, by = "Year")
@@ -568,15 +592,13 @@ PDO_half_AIC <- AIC(PDO_half_mod)
 PDO_half_AIC < PDO_full_AIC
 
 ## What is the delta AIC?
-PDO_full_AIC - PDO_half_AIC
-
-
+PDO_half_AIC - PDO_full_AIC
 ```
 The full PDO model has more support than the half model. 
 
 Then, using the full PDO model, we tested a non-lagged versus one-year lagged dataset.
 ```{r PDO2}
-## no lag, averaged for 12 months (same as PDO_full above)
+## no lag, averaged for 12 months (same as PDO_full above) and scaled
 PDO_nolag <- PDOraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
@@ -588,9 +610,10 @@ PDO_nolag <- PDOraw %>%
   dplyr::select(Year, PDO) %>%
   filter(Year >= 2009 & Year <= 2017) %>%
   mutate(PDO_nolag = scale(PDO)) %>%
-  arrange(Year) 
+  arrange(Year) %>%
+  dplyr::select(Year, PDO_nolag)
 
-## one year lag, averaged for 12 months
+## one year lag, averaged for 12 months and scaled
 PDO_lag <- PDOraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
@@ -627,13 +650,17 @@ PDO_nolag_AIC < PDO_lag_AIC
 ## What is the delta AIC?
 PDO_nolag_AIC - PDO_lag_AIC
 ```
-There is support for including a one year lag for the PDO model averaged for 12 months.
-
+There is support for including a one-year lag for the PDO data averaged across 12 months.
 
 ## ONI
-```{r ONI}
+First, we tested against using data from the entire year versus from January-June. 
+```{r ONI1}
 ONIraw <- read_csv(here("data", "covariates", "cciea_OC_ONI_712b_5843_9069.csv"))
 
+## are there NAs in the data?
+sum(is.na(ONIraw$ONI)) # only the first row, which does not contain data
+
+## data averaged across 12 months and scaled
 ONI_full <- ONIraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
@@ -643,11 +670,11 @@ ONI_full <- ONIraw %>%
   summarise(ONI = mean(oni, na.rm = TRUE)) %>%
   dplyr::select(Year, ONI) %>%
   filter(Year >= 2009 & Year <= 2017) %>%
-  arrange(Year) %>%
   mutate(ONI_full = scale(ONI)) %>%
-  as_tibble()
+  arrange(Year) %>%
+  dplyr::select(Year, ONI_full)
 
-## for January-June only
+## data averaged for January-June only and scaled
 ONI_half <- ONIraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
@@ -661,7 +688,7 @@ ONI_half <- ONIraw %>%
   filter(Year >= 2009 & Year <= 2017) %>%
   mutate(ONI_half = scale(ONI)) %>%
   arrange(Year) %>%
-  as_tibble()
+  dplyr::select(Year, ONI_half)
 
 ## join 2 datasets together
 ONI1 <- full_join(ONI_full, ONI_half, by = "Year")
@@ -681,15 +708,13 @@ ONI_half_AIC <- AIC(ONI_half_mod)
 ONI_half_AIC < ONI_full_AIC
 
 ## What is the delta AIC?
-ONI_full_AIC - ONI_half_AIC
-
+ONI_half_AIC - ONI_full_AIC
 ```
-The full ONI model has more support. 
+The full ONI model has more support than the half-year ONI model. 
 
 Using the full ONI model, we tested a non-lagged versus one-year lagged dataset.
 ```{r ONI2}
-## no lag, averaged for 12 months (same as ONI_full above)
-
+## no lag, averaged for 12 months (same as ONI_full above) and scaled
 ONI_nolag <- ONIraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
@@ -702,9 +727,9 @@ ONI_nolag <- ONIraw %>%
   filter(Year >= 2009 & Year <= 2017) %>%
   mutate(ONI_nolag = scale(ONI)) %>%
   arrange(Year) %>%
-  as_tibble()
+  dplyr::select(Year, ONI_nolag)
 
-## one year lag, averaged for 12 months
+## one year lag, averaged for 12 months and scaled
 ONI_lag <- ONIraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
@@ -739,7 +764,6 @@ ONI_lag_AIC <- AIC(ONI_lag_mod)
 ONI_nolag_AIC < ONI_lag_AIC
 
 ## What is the delta AIC?
-ONI_nolag_AIC - ONI_lag_AIC
+ONI_lag_AIC - ONI_nolag_AIC
 ```
-The no lag 12 month ONI model has more support. 
-
+The no lag full ONI model has more support than the one-year lagged full ONI model. 
