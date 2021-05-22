@@ -18,14 +18,10 @@ library(viridis)
 library(lme4)
 library(faraway)
 library(sjPlot)
+library(RLRsim)
 ```
 
 This is `r paste0("v.", (Sys.Date()))`
-
-#TODO
-- Test lag on environmental covariates
-- Model averaging prediction for top 3 models
-- 
 
 # Introduction
 This document details steps taken to model Scripps's Murrelet (*Synthliboramphus scrippsi*) egg size at Santa Barbara Island within Channel Islands National Park from 2009-2017.  
@@ -40,12 +36,9 @@ SCMUdf <- left_join(egg, covars, by = "Year") %>%
   filter(TrueOrder == TRUE) %>% # egg order known only
   select(Year, Observer, Plot, Size, EggOrder, ANCHL, BEUTI, NPGO, ONI, PDO, SST) %>%
   as_tibble()
-
-###SJC ADDED 
-# SCMUdf <- SCMUdf[-c(which(is.na(SCMUdf$Observer==TRUE))),]
 ```
 
-# Null Intercept-Only Model
+# Null Intercept-Only Model with 2 random effects
 This model includes observer and plot as random effects, but does not include any covariates.
 ```{r null_model}
 ## run model
@@ -77,12 +70,6 @@ ggplot() +
   theme_minimal()
 # we want these to look normally distributed
 
-## Q-Q Plots
-# ## set plot area
-# par(mai = c(0.9, 0.9, 0.6, 0.1),
-#     omi = c(0, 0, 0, 0),
-#     mfrow = c(1,2), cex.lab = 1.2)
-
 # qq resids
 qqnorm(resids, main = "QQ plot (residuals)", las = 1, pch = 16)
 qqline(resids)
@@ -95,7 +82,7 @@ plot(yh, resids, las = 1, pch = 16,
 abline(h=0, lty = "dashed")
 ```
 
-# Egg Order-only Model
+# Egg Order-only Model with 2 random effects
 This model includes observer and plot as random effects and egg order as a fixed effect. 
 ```{r egg_model}
 ## run the model
@@ -109,6 +96,7 @@ ranef(order.mod)
 ```
 
 # Fit Candidate Models
+Based on the LRTs, we only included Plot as a random effect (see below). 
 ```{r mods}
 ## create data frame specifying predictors to include
 predictors <- as.data.frame(matrix(c(FALSE, TRUE), 2, 7)) # 7 potential predictors (includes EggOrder)
@@ -120,19 +108,20 @@ cov_names <- colnames(predictors) <- colnames(SCMUdf[,5:11])
 full_set <- expand.grid(predictors) # 128 combinations
 
 ## select models with correlated predictors
-ii <- which(full_set$ANCHL + full_set$PDO == 2 |
+ii <- which(full_set$ANCHL + full_set$NPGO == 2 |
+              full_set$ANCHL + full_set$PDO == 2 |
               full_set$ANCHL + full_set$SST == 2 |
-              full_set$ANCHL + full_set$NPGO == 2 |
               full_set$BEUTI + full_set$PDO == 2 |
               full_set$NPGO + full_set$ONI == 2 |
+              full_set$NPGO + full_set$PDO == 2 |
               full_set$NPGO + full_set$SST == 2 |
-              full_set$NPGO + full_set$PDO == 2) # 92 models
+              full_set$PDO + full_set$SST == 2) # 96 models
 
 ## create reduced set of models and convert to a matrix for easier indexing
-use_set <- as.matrix(full_set[-ii,]) # 36 models
+use_set <- as.matrix(full_set[-ii,]) 
 
 ## number of models in set
-(n_mods <- nrow(use_set)) # 36 models out of potential 128
+(n_mods <- nrow(use_set)) # 32 models out of potential 128
 
 ## create empty matrix for storing results
 mod_res <- matrix(NA, n_mods, 2)
@@ -175,10 +164,10 @@ mpfe <- mp %>%
 
 usmr <- mpfe %>%
   mutate(k = as.vector(rowSums(use_set) + 2)) %>% #2 check this
-  mutate(modelno = 1:36) 
+  mutate(modelno = 1:32) 
 
 allm <- as.data.frame(delta_res) %>%
-  mutate(modelno = 1:36) %>%
+  mutate(modelno = 1:32) %>%
   arrange(deltaAIC) %>%
   left_join(usmr, by = "modelno") %>%
   dplyr::select(modelno, FEs, k, deltaAIC, deltaBIC)
@@ -190,61 +179,46 @@ bestm <- allm %>%
 There are three competitive models. All three models include EggOrder and BEUTI as a predictor.
 
 # Top Models
-Here we look at the top three competitive models. 
+Here we look at the top competitive models. 
 
-## New Top Model
+## Top Model 1
 ```{r ntm}
-topmod <- lmer(Size ~ EggOrder + BEUTI + NPGO + (1 | Plot), data = SCMUdf, REML = TRUE)
-summary(topmod)  
-
+topmod1 <- lmer(Size ~ EggOrder + BEUTI + NPGO + (1 | Plot), data = SCMUdf, REML = TRUE)
+summary(topmod1)  
 ```
-## New Top Model 2
+## Top Model 2
 ```{r topmod2}
-
 topmod2 <- lmer(Size ~ EggOrder + BEUTI + ONI + SST + (1 | Plot), data = SCMUdf, REML = TRUE)
 summary(topmod2)
-
 ```
 
-## First Top Model
-```{r bestmod1}
-##run model
-bm1 <- lmer(Size ~ EggOrder + BEUTI + NPGO + ONI + (1 | Observer) + (1 | Plot), data = SCMUdf, REML = TRUE)
-## look at model output and estimates
-summary(bm1)
-coef(bm1)
-ranef(bm1)
-model.matrix(bm1)
+# Likelihood Ratio Tests
+We used LRTs using the top model to test the support for inclusion of random effects (Plot, Observer). There are NAs in the observer data from 2015. These NAs need to be removed prior to completing LRT tests. See https://cran.r-project.org/web/packages/RLRsim/RLRsim.pdf for info.
+```{r likelihoodratio}
+SCMUdf2 <- SCMUdf[-c(which(is.na(SCMUdf$Observer==TRUE))),]
+
+## top model
+bm_both <- lmer(Size ~ EggOrder + BEUTI + NPGO + (1 | Observer) + (1 | Plot), data = SCMUdf2, REML = FALSE)
+
+## run model with plot RE only
+bm_plot <- lmer(Size ~ EggOrder + BEUTI + NPGO + (1 | Plot), data = SCMUdf2, REML = FALSE)
+
+## run model with obs RE only
+bm_obs <- lmer(Size ~ EggOrder + BEUTI + NPGO + (1 | Observer), data = SCMUdf2, REML = FALSE)
+
+## Exact RLRT test
+# m is the reduced model containing only the RE to be tested (the random effect set to zero under the null hypothesis). mA and Mo are the models under the alternative and the null, respectively. 
+
+# observer set to zero under the null hypothesis
+exactRLRT(m = bm_obs, mA = bm_both, m0 = bm_plot, seed = 16)
+
+# plot set to zero under the null hypothesis 
+exactRLRT(m = bm_plot, mA = bm_both, m0 = bm_obs, seed = 16)
 ```
-
-
-## Second Top Model
-```{r bestmod2}
-##run model
-bm2 <- lmer(Size ~ EggOrder + ANCHL + BEUTI + ONI + (1 | Observer) + (1 | Plot), data = SCMUdf, REML = TRUE)
-
-## look at model output and estimates
-summary(bm2)
-coef(bm2)
-ranef(bm2)
-model.matrix(bm2)
-```
-
-
-## Third Top Model
-```{r bestmod3}
-##run model
-bm3 <- lmer(Size ~ EggOrder + ANCHL + BEUTI + SST + (1 | Observer) + (1 | Plot), data = SCMUdf, REML = TRUE)
-
-## look at model output and estimates
-summary(bm3)
-coef(bm3)
-ranef(bm3)
-model.matrix(bm3)
-```
+Based on a strict alpha = 0.05, we would keep plot (p ~ 0.0198) but eliminate observer (p ~ 1).
 
 # Model Diagnostics
-These diagnostics are done for the first top model only but can be repeated for the other 2 models. 
+These diagnostics are done for the global model. 
 
 ## Residuals/Fitted Plots
 
@@ -344,73 +318,6 @@ degf <- nn-6 # 4 fixed effects, 2 random effects
 
 ## likelihood ratio test
 pchisq(X2, df = degf, lower.tail = FALSE)
-```
-
-## Likelihood Ratio Tests
-Review with Sarah***
-```{r likelihoodratio}
-## Likelihood ratio tests  
-## top model
-bm1 <- lmer(Size ~ EggOrder + BEUTI + NPGO + ONI + (1 | Observer) + (1 | Plot), data = SCMUdf, REML = TRUE)
-
-## run model with plot RE only
-bm_plot <- lmer(Size ~ EggOrder + BEUTI + NPGO + ONI +  (1 | Plot), data = SCMUdf, REML = TRUE)
-
-## run model with obs RE only
-bm2 <- lmer(Size ~ EggOrder + BEUTI + NPGO + ONI + (1 | Observer), data = SCMUdf, REML = TRUE)
-
-bm_obs1 <- lmer(Size ~ EggOrder + BEUTI + NPGO + ONI + (1 | Observer), data = SCMUdf, REML = FALSE)
-
-bm_null <- lm(Size ~ EggOrder + BEUTI + NPGO + ONI , data = SCMUdf)
-
-## conduct an LRT to see if the variance of the Plot RE is contributing useful info
-test_1 <- 2 * (logLik(bm1) - logLik(bm_obs))
-pchisq(as.numeric(test_1), df = 1, lower.tail = FALSE)
-# There is support for inclusion of Plot as an RE
-
-## check for contribution of Obs RE
-test_2 <- 2 * (logLik(bm1) - logLik(bm_plot))
-pchisq(as.numeric(test_2), df = 1, lower.tail = FALSE)
-# There is support for inclusion of Obs as an RE
-
-## Bootstrapping  to test for evidence against including multiple random effects in the same model
-## set random seed 
-set.seed(514)
-
-## fit null model with no RE's 
-nbm <- lm(Size ~ EggOrder + BEUTI + NPGO + ONI, data = SCMUdf)
-
-## calculate likelihood ratio (difference in log-likelihood)
-lambda <- 2 * (logLik(bm1) - logLik(nbm))
-
-## number of bootstrapped samples
-nb <- 1000
-
-## empty vector for storing LRT statistics
-LRT_boot <- rep(NA, nb)
-
-## bootstrapping
-for(i in 1:nb) { # repeat nb times
-  sim_data <- unlist(simulate(nbm)) # simulate data from null model
-  m_null <- lm(sim_data ~ EggOrder + BEUTI + NPGO + ONI, data = SCMUdf) # fit null model to sim data 
-  m_alt <- lmer(sim_data ~ EggOrder + BEUTI + NPGO + ONI + (1 | Observer) + (1 | Plot), data = SCMUdf, REML = TRUE) # fit RE model
-  LRT_boot[i] <- as.numeric(2*(logLik(m_alt) - logLik(m_null))) # calculate likelihood ratio 
-} # boundary (singular) fit: see ?isSingular
-
-## calculate approximate p-value
-mean(LRT_boot > lambda)
-
-library(RLRsim)
-
-#SJC ADDED 
-#based on a strict alpha = 0.05, we would keep plot (p ~ 0.004) but eliminate observer (p ~ 0.09). We can make a decision either way though... 
-
-exactRLRT(bm_obs1, bm1, bm_plot)
-
-exactRLRT(bm_plot, bm1, bm_obs1)
-
-exactLRT(bm_obs1,bm_null)
-
 ```
 
 # Identifying Outliers
