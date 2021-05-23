@@ -23,9 +23,7 @@ library(Hmisc)
 This is `r paste0("v.", (Sys.Date()))`
 
 # Introduction
-This document details steps taken to compile covariate data for a linear mixed model on Scripps's Murrelet (*Synthliboramphus scrippsi*) egg size at Santa Barbara Island within Channel Islands National Park from 2009-2017.
-
-At first, we decided to pull relevant covariates from January-June only because murrelets begin to arrive at the colony in January and clutch initiation extends from March to June (Murray et al. 1985). Then, we tested lagged and non-lagged covariates (see SCMU_lagged_covariates.Rmd). 
+This document details steps taken to compile covariate data for a linear mixed model on Scripps's Murrelet (*Synthliboramphus scrippsi*) egg size at Santa Barbara Island within Channel Islands National Park from 2009-2017. At first, we decided to pull relevant covariates from January-June only because murrelets begin to arrive at the colony in January and clutch initiation extends from March to June (Murray et al. 1985). Later, we tested the support for temporally restricted data (e.g., covariates averaged by year for all 12 months versus data averaged across January-June only), as well as support for lagged and non-lagged covariates (see SCMU_lagged_covariates.Rmd). We selected final covariate data based on model selection via single covariate models. 
 
 # Potential Covariates
 
@@ -42,7 +40,7 @@ For SST, we pulled data from the entire year (12 months) with no lag.
 ```{r sst}
 SSTraw <- read_csv(here("data", "covariates", "cciea_OC_SST3_91cf_d165_213f-46025.csv"))
 
-## Averaged over all 12 months
+## Averaged SST by year over 12 months and scaled (no lag)
 SST <- SSTraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
@@ -51,9 +49,8 @@ SST <- SSTraw %>%
   mutate(sst = as.numeric(SST)) %>%
   group_by(Year) %>%
   summarise(SST = mean(sst, na.rm = TRUE)) %>%
-  dplyr::select(Year, SST) %>%
   filter(Year >= 2009 & Year <= 2017) %>%
-  mutate(SST_full = scale(SST)) %>%
+  mutate(SST = scale(SST)) %>% 
   arrange(Year) 
 
 # ## for January-June only
@@ -139,12 +136,6 @@ SST <- SSTraw %>%
 #   as_tibble()
 ```
 
-Buoy 46215  
-This buoy was established in 2013. 
-NOAA buoy station 46251: https://www.ndbc.noaa.gov/station_page.php?station=46251
-Historical data here: https://www.ndbc.noaa.gov/station_history.php?station=46251
-
-
 ## Forage fish 
 Data from NOAA IEA 
 https://www.integratedecosystemassessment.noaa.gov/regions/california-current/cc-indicator-ecological-integrity  
@@ -171,11 +162,11 @@ ANCHA <- ANCHAraw %>%
 Dr. Andrew Thompson (NOAA; andrew.thompson@noaa.gov); derived from spring CalCOFI surveys. Larval fish data summed across all stations of the CalCOFI survey in spring (units are in number under 10 sq. m of surface area; ln(abundance+1)).
 CalCOFI lines 76.7 - 93.3; stations 28.0 - 120/0  
 
-For ANCHL, we used data from the full year with no lag (yearly sampling rate). 
+For ANCHL, there is only a yearling sampling rate. There was no support for lagged data.  
 ```{r anchovyl}
-# ANCHLraw  <- read_csv(here("data", "covariates", "cciea_EI_FBS_a29e_1fd0_409d.csv"), na.strings = "NaN")
 ANCHLraw  <- read.csv(here("data", "covariates", "cciea_EI_FBS_2020_a29e_1fd0_409d.csv"), na.strings = "NaN")
-  
+
+## Data by year (no average) and scaled (no lag)
 ANCHL <- ANCHLraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
@@ -183,8 +174,8 @@ ANCHL <- ANCHLraw %>%
   mutate(ANCHL = as.numeric(relative_abundance)) %>%
   dplyr::select(Year, ANCHL) %>%
   filter(Year >= 2009 & Year <= 2017) %>%
-  arrange(Year) %>%
-  as_tibble()
+  mutate(ANCHL = scale(ANCHL)) %>% 
+  arrange(Year) 
 ```
 
 ### Krill - CCC (1990-2019)
@@ -216,7 +207,7 @@ For PDO, we used data from the entire year (12 months) with a one-year lag.
 ```{r PDO}
 PDOraw <- read_csv(here("data", "covariates", "cciea_OC_PDO_712b_5843_9069.csv"))
 
-## one year lag, averaged for 12 months
+## Averaged PDO by year across 12 months with a one year lag and scaled
 PDO <- PDOraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
@@ -227,11 +218,11 @@ PDO <- PDOraw %>%
   summarise(PDO = mean(pdo, na.rm = TRUE)) %>%
   dplyr::select(Year, PDO) %>%
   filter(Year >= 2008 & Year <= 2016) %>%
-  mutate(PDO_lag = scale(PDO),
+  mutate(PDO = scale(PDO),
          TrueYear = Year,
          Year = TrueYear + 1) %>%
   arrange(Year) %>%
-  dplyr::select(Year, PDO_lag)
+  dplyr::select(Year, PDO)
 
 # PDO_full <- PDOraw %>%
 #   slice(-1) %>%
@@ -270,7 +261,7 @@ For ONI, we used data from the entire year (12 months) with no lag.
 ```{r ONI}
 ONIraw <- read_csv(here("data", "covariates", "cciea_OC_ONI_712b_5843_9069.csv"))
 
-## 12 months, no lag
+## Averaged ONI by year across 12 months and scaled (no lag)
 ONI <- ONIraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
@@ -280,8 +271,9 @@ ONI <- ONIraw %>%
   summarise(ONI = mean(oni, na.rm = TRUE)) %>%
   dplyr::select(Year, ONI) %>%
   filter(Year >= 2009 & Year <= 2017) %>%
+  mutate(ONI = scale(ONI)) %>%
   arrange(Year) %>%
-  as_tibble()
+  dplyr::select(Year, ONI)
 
 # ## for January-June only
 # ONI <- ONIraw %>%
@@ -310,7 +302,7 @@ For NPGO, we used data from the entire year (12 month) with no lag.
 ```{r NPGO}
 NPGOraw <- read_csv(here("data", "covariates", "cciea_OC_NPGO_712b_5843_9069.csv"))
 
-## one year lag, averaged for 12 months
+## Average NPGO by year over 12 months and scaled (no lag)
 NPGO <- NPGOraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
@@ -320,9 +312,9 @@ NPGO <- NPGOraw %>%
   summarise(NPGO = mean(npgo, na.rm = TRUE)) %>%
   dplyr::select(Year, NPGO) %>%
   filter(Year >= 2009 & Year <= 2017) %>%
-  mutate(NPGO_nolag = scale(NPGO)) %>%
+  mutate(NPGO = scale(NPGO)) %>%
   arrange(Year) %>%
-  as_tibble()
+  dplyr::select(Year, NPGO)
 
 # NPGO_full <- NPGOraw %>%
 #   slice(-1) %>%
@@ -410,7 +402,7 @@ For BEUTI, we used data from the entire year (12 months) with a one-year lag.
 ```{r BEUTI}
 BEUTIraw <- read_csv(here("data", "covariates", "cciea_OC_BEUTI_784c_ef9f_af6f.csv"))
 
-## one year lag, all 12 months
+## Averaged by year across 12 months with a one year lag and scaled
 BEUTI <- BEUTIraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
@@ -420,11 +412,11 @@ BEUTI <- BEUTIraw %>%
   summarise(BEUTI = mean(beuti, na.rm = TRUE)) %>%
   dplyr::select(Year, BEUTI) %>%
   filter(Year >= 2008 & Year <= 2016) %>%
-  mutate(BEUTI_full_lag = scale(BEUTI),
+  mutate(BEUTI = scale(BEUTI),
          TrueYear = Year,
          Year = TrueYear + 1) %>%
   arrange(Year) %>%
-  dplyr::select(Year, BEUTI_full_lag)
+  dplyr::select(Year, BEUTI)
 
 # BEUTI_full <- BEUTIraw %>%
 #   slice(-1) %>%
@@ -475,9 +467,9 @@ colnames(covars) <- c("ANCHL", "BEUTI", "NPGO", "ONI", "PDO", "SST")
 # colnames(covars) <- c("ANCHA", "ANCHL", "BAKUN", "BEUTI", "CUTI", 
 #                       "KRILL", "NPGO", "ONI", "PDO", "SST")
 
-## scale covariates
-covars <- covars %>%
-  mutate_all(., scale) # see ?scale
+# ## scale covariates
+# covars <- covars %>%
+#   mutate_all(., scale) # see ?scale
 
 ## check for correlation between predictors (cutoff >0.65)
 cp <- as.data.frame((round(cor(covars, use="complete.obs"), 2)))
@@ -514,19 +506,28 @@ We selected +/- 0.65 as our cutoff for correlation. The following covariates sho
 <!-- 5. ONI and SST -->
 <!-- 6. PDO and SST -->
 
-1. ANCHL and PDO
-2. ANCHL and SST
-3. ANCHL and NPGO
-4. BEUTI and PDO
-5. NPGO and ONI
-6. NPGO and SST
-7. NPGO and PDO
+<!-- 1. ANCHL and PDO -->
+<!-- 2. ANCHL and SST -->
+<!-- 3. ANCHL and NPGO -->
+<!-- 4. BEUTI and PDO -->
+<!-- 5. NPGO and ONI -->
+<!-- 6. NPGO and SST -->
+<!-- 7. NPGO and PDO -->
+
+1. ANCHL and NPGO (-0.67)
+2. ANCHL and PDO (0.70)
+3. ANCHL and SST (0.70)
+4. BEUTI and PDO (-0.73)
+5. NPGO and ONI (-0.68)
+6. NPGO and PDO (-0.76)
+7. NPGO and SST (-0.87)
+8. PDO and SST (0.65)
 
 # Number of Candidate Models
 
 ```{r nomods}
 ## create data frame specifying predictors to include
-predictors <- as.data.frame(matrix(c(FALSE, TRUE), 2, 6)) # 6 potential predictors
+predictors <- as.data.frame(matrix(c(FALSE, TRUE), 2, 6)) # 6 potential predictors (excludes Egg order)
 
 ## add column names
 cov_names <- colnames(predictors) <- colnames(covars)
@@ -535,26 +536,20 @@ cov_names <- colnames(predictors) <- colnames(covars)
 full_set <- expand.grid(predictors) # 64 combinations
 
 ## select models with correlated predictors
-# ii <- which(full_set$ANCHL + full_set$NPGO == 2 |
-#               full_set$BEUTI + full_set$PDO == 2 |
-#               full_set$NPGO + full_set$SST == 2 |
-#               full_set$ONI + full_set$PDO == 2 |
-#               full_set$ONI + full_set$SST == 2 |
-#               full_set$PDO + full_set$SST == 2 ) # 45 models
-
-ii <- which(full_set$ANCHL + full_set$PDO == 2 |
+ii <- which(full_set$ANCHL + full_set$NPGO == 2 |
+              full_set$ANCHL + full_set$PDO == 2 |
               full_set$ANCHL + full_set$SST == 2 |
-              full_set$ANCHL + full_set$NPGO == 2 |
               full_set$BEUTI + full_set$PDO == 2 |
               full_set$NPGO + full_set$ONI == 2 |
+              full_set$NPGO + full_set$PDO == 2 |
               full_set$NPGO + full_set$SST == 2 |
-              full_set$NPGO + full_set$PDO == 2) # 46 models
+              full_set$PDO + full_set$SST == 2) # 48 models
 
 ## create reduced set of models and convert to a matrix for easier indexing
-use_set <- as.matrix(full_set[-ii,]) # 18 models
+use_set <- as.matrix(full_set[-ii,]) # 16 models
 
 ## number of models in set
-(n_mods <- nrow(use_set)) # 18 models out of potential 64
+(n_mods <- nrow(use_set)) # 16 models out of potential 64
 ```
 
 # Final Covariates Plot
@@ -567,13 +562,17 @@ ggplot(data = covarsplot, aes(x = year, y = value, color = covariate)) +
   geom_line() +
   facet_wrap(~covariate, nrow = 1) +
   scale_color_viridis(discrete = TRUE) + 
+  ylim(c(-2.5, 2.5)) +
   theme_minimal() + xlab("Year") + ylab("") +
   scale_x_discrete(breaks = c(2009, 2013, 2017), limits = c(2009, 2013, 2017)) +
   theme(legend.position = "none", 
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
-        axis.text.x = element_text(angle = 45),
+        axis.text.x = element_text(angle = 90),
         panel.spacing = unit(2.5, "lines")) 
+
+## export figure
+# ggsave(filename = here("results", "covarsplot.png"), plot = last_plot())
 ```
 
 # Export Out 
@@ -581,5 +580,5 @@ ggplot(data = covarsplot, aes(x = year, y = value, color = covariate)) +
 finalcovars <- covars %>%
   mutate(Year = 2009:2017) %>%
   select(Year, everything())
-#write.csv(x = finalcovars, file = here("data", "covariates", "covars.csv")) 
+# write.csv(x = finalcovars, file = here("data", "covariates", "covars.csv")) 
 ```
