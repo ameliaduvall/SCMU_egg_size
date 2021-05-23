@@ -42,7 +42,7 @@ SCMUdf <- left_join(egg, covars, by = "Year") %>%
   as_tibble()
 
 ###SJC ADDED 
-# SCMUdf <- SCMUdf[-c(which(is.na(SCMUdf$Observer==TRUE))),]
+#SCMUdf <- SCMUdf[-c(which(is.na(SCMUdf$Observer==TRUE))),]
 ```
 
 # Null Intercept-Only Model
@@ -251,9 +251,9 @@ These diagnostics are done for the first top model only but can be repeated for 
 ### Histogram of Predicted Values
 ```{r d1}
 ## extract predicted values and plot
-preds <- predict(topmod2)
+preds <- predict(topmod)
 ggplot() + 
-  geom_histogram(mapping = aes(preds), bins = 15) + # set bins 
+  geom_histogram(mapping = aes(preds), bins = 20) + # set bins 
   theme_minimal()
 ```
 Since we assumed our data are normal, we want to see an approximately normal distribution of predicted values.
@@ -261,7 +261,7 @@ Since we assumed our data are normal, we want to see an approximately normal dis
 ### Histogram of Residuals
 ```{r d2}
 ## extract residuals and plot
-resids <- residuals(topmod2)
+resids <- residuals(topmod)
 ggplot() + 
   geom_histogram(mapping = aes(resids), bins = 20) + 
   theme_minimal()
@@ -271,8 +271,8 @@ Since we assumed our data are normal, we want to see an approximately normal dis
 ### Model Coefficients
 ```{r d3}
 ## extract coeffs and random effects
-coef(topmod2) # this include fixed and random effects
-ranef_pl <- ranef(topmod2)$Plot # plot random effect only
+coef(topmod) # this include fixed and random effects
+ranef_pl <- ranef(topmod)$Plot # plot random effect only
 
 ## look at data going into random effects
 table(SCMUdf$Plot)
@@ -298,7 +298,7 @@ We want our points to fall approximately on the diagonal lines.
 ### Fitted v Residuals
 ```{r d5}
 ## plot residuals versus fitted values
-yh <- fitted(topmod2)
+yh <- fitted(topmod)
 plot(yh, resids, las = 1, pch = 16,
      xlab = "Fitted", ylab = "Residuals",
      main = "Residuals vs fitted")
@@ -419,7 +419,7 @@ https://qerm514.github.io/website/homework/week_03/hw_03_diagnostics_key.pdf
 Calculate the studentized residuals to look for outliers
 ```{r outliers}
 ## get studentized residuals
-(stud_e <- rstudent(topmod2))
+(stud_e <- rstudent(topmod))
 
 ## get sample size
 n <- nrow(SCMUdf)
@@ -479,7 +479,6 @@ CI.hi <- pred + std.err*1.96
 # AIC.tab[3,1] <- extractAIC(bm3)[2]
 # AIC.tab[,2] <- AIC.tab[,1] - min(AIC.tab[,1])
 # AIC.tab[,3] <- exp(-0.5*AIC.tab[,2])/(sum(exp(-0.5*AIC.tab[,2])))
-
 
 #new model1
 topmod <- lmer(Size ~ EggOrder + BEUTI + NPGO + (1 | Plot), data = SCMUdf, REML = TRUE)
@@ -650,7 +649,7 @@ resid.sd.1 <- as.data.frame(VarCorr(topmod))$sdcor[2]
 plot.sd.2 <- as.data.frame(VarCorr(topmod2))$sdcor[1]
 resid.sd.2 <- as.data.frame(VarCorr(topmod2))$sdcor[2]
 
-sims <- 1000
+sims <- 10000
 
 pv.ONI <- matrix(nrow = sims, ncol = nrow(SCMU.ONI))
 for(i in 1:sims){
@@ -686,7 +685,7 @@ resid.sd.1 <- as.data.frame(VarCorr(topmod))$sdcor[2]
 plot.sd.2 <- as.data.frame(VarCorr(topmod2))$sdcor[1]
 resid.sd.2 <- as.data.frame(VarCorr(topmod2))$sdcor[2]
 
-sims <- 1000
+sims <- 10000
 
 pv.SST <- matrix(nrow = sims, ncol = nrow(SCMU.SST))
 for(i in 1:sims){
@@ -714,7 +713,6 @@ lines(SCMU.SST$SST[1:100],y = apply(pv.SST,2,function(x)quantile(x,probs= 0.975)
 
 
 ```{r combine plots}
-parmfrow=c(2, 2)
 
 plot(SCMU.BEUTI$BEUTI[1:100],y = apply(pv.BEUTI,2,mean)[1:100],xlab = "BEUTI",ylab = "Egg Size",type = "l",ylim = c(1500,2500))
 lines(SCMU.BEUTI$BEUTI[1:100],y = apply(pv.BEUTI,2,function(x)quantile(x,probs= 0.025))[1:100],lty=2)
@@ -729,7 +727,7 @@ lines(SCMU.ONI$ONI[1:100],y = apply(pv.ONI,2,function(x)quantile(x,probs= 0.025)
 lines(SCMU.ONI$ONI[1:100],y = apply(pv.ONI,2,function(x)quantile(x,probs= 0.975))[1:100],lty=2)
   
 plot(SCMU.SST$SST[1:100],y = apply(pv.SST,2,mean)[1:100],xlab = "SST",ylab = "Egg Size",type = "l",ylim = c(1500,2500))
-lines(SCMU.SST$SST[1:100],y = apply(pv.SST,2,function(x)quantile(x,probs= 0.025))[1:100],lty=2)
+lines(SCMU.SST$SST[1:100],y = apply(pv.SST,2,function(x)quantile(x,probs= 0.025))[1:100],lty=2)x
 lines(SCMU.SST$SST[1:100],y = apply(pv.SST,2,function(x)quantile(x,probs= 0.975))[1:100],lty=2)
   
 ```
