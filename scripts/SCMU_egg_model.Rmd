@@ -321,59 +321,18 @@ abline(h = 4/sample_size, col="red")  # add cutoff line
 text(x=1:length(cook)+1, y=cook, labels=ifelse(cook>4/sample_size, names(cook),""), col="red")  # add labels
 ```
 
-<<<<<<< HEAD
-# Confidence Intervals
-```{r conf}
-# predict values
-pred <- predict(bm1,re.form = NA)
-
-# Bootstrap CI
-boot <- bootMer(bm1, predict, nsim = 100, re.form = NA)
-std.err <- apply(boot$t, 2, sd)
-CI.lo <- pred - std.err*1.96
-CI.hi <- pred + std.err*1.96
-
-# Plot?
-```
-
-
-
-```{r, modselection}
-
-##SJC added - here we are doing model selection and calculating Akaike weights 
-##model1
-# bm1 <- lmer(Size ~ EggOrder + BEUTI + NPGO + ONI + (1 | Observer) + (1 | Plot), data = SCMUdf, REML = TRUE)
-# ##model2
-# bm2 <- lmer(Size ~ EggOrder + ANCHL + BEUTI + ONI + (1 | Observer) + (1 | Plot), data = SCMUdf, REML = TRUE)
-# ##model3
-# bm3 <- lmer(Size ~ EggOrder + ANCHL + BEUTI + SST + (1 | Observer) + (1 | Plot), data = SCMUdf, REML = TRUE)
-# 
-# AIC.tab <- matrix(NA,nrow = 3, ncol = 3)
-# AIC.tab[1,1] <- extractAIC(bm1)[2]
-# AIC.tab[2,1] <- extractAIC(bm2)[2]
-# AIC.tab[3,1] <- extractAIC(bm3)[2]
-# AIC.tab[,2] <- AIC.tab[,1] - min(AIC.tab[,1])
-# AIC.tab[,3] <- exp(-0.5*AIC.tab[,2])/(sum(exp(-0.5*AIC.tab[,2])))
-
-#new model1
-topmod <- lmer(Size ~ EggOrder + BEUTI + NPGO + (1 | Plot), data = SCMUdf, REML = TRUE)
-#new model2
-topmod2 <- lmer(Size ~ EggOrder + BEUTI + ONI + SST + (1 | Plot), data = SCMUdf, REML = TRUE)
-
-AIC.tab <- matrix(NA,nrow = 2, ncol = 3)
-AIC.tab[1,1] <- extractAIC(topmod)[2]
-AIC.tab[2,1] <- extractAIC(topmod2)[2]
-AIC.tab[,2] <- AIC.tab[,1] - min(AIC.tab[,1])
-AIC.tab[,3] <- exp(-0.5*AIC.tab[,2])/(sum(exp(-0.5*AIC.tab[,2])))
-
-```
-
-=======
->>>>>>> 645e8459c6442f40b202db6ba5d0adc5a6678bbb
 # Prediction
 ```{r predict}
 topmod1 <- lmer(Size ~ EggOrder + BEUTI + NPGO + (1 | Plot), data = SCMUdf, REML = TRUE)
 topmod2 <- lmer(Size ~ EggOrder + BEUTI + ONI + SST + (1 | Plot), data = SCMUdf, REML = TRUE)
+
+# AIC tab for 2 top models
+AIC.tab2 <- matrix(NA, nrow = 2, ncol = 3)
+AIC.tab2[1,1] <- AIC(topmod1)
+AIC.tab2[2,1] <- AIC(topmod2)
+AIC.tab2[,2] <- AIC.tab2[,1] - min(AIC.tab2[,1])
+AIC.tab2[,3] <- exp(-0.5*AIC.tab2[,2])/(sum(exp(-0.5*AIC.tab2[,2])))
+print(AIC.tab2)
 
 #we want predictions with all predictors but one held constant, and then we'll do this one-at-a-time for each of the predictors
 # this will allow us to produce nice plots looking at the marginal effect of each predictor 
@@ -395,10 +354,9 @@ SCMU.null$Plot <- sample(SCMUdf$Plot,200,replace = TRUE)
 
 ```
 
-
-
+## BEUTI
 ```{r predict BEUTI}
-#then vary just one predictor at a time for prediction. For example, create the dataset SCMU.BEUTI that will be used for predictions where the only thing that values is BEUTI 
+#then vary just one predictor at a time for prediction. For example, create the dataset SCMU. BEUTI that will be used for predictions where the only thing that values is BEUTI 
 SCMU.BEUTI <- SCMU.null
 SCMU.BEUTI$BEUTI <- rep(seq(from = min(SCMUdf$BEUTI),to = max(SCMUdf$BEUTI),length.out = 100),2)
 
@@ -417,13 +375,13 @@ SCMU.BEUTI$BEUTI <- rep(seq(from = min(SCMUdf$BEUTI),to = max(SCMUdf$BEUTI),leng
 # plot.sd.3 <- as.data.frame(VarCorr(bm3))$sdcor[2]
 # resid.sd.3 <- as.data.frame(VarCorr(bm3))$sdcor[3]
 
-plot.sd.1 <- as.data.frame(VarCorr(topmod))$sdcor[1]
-resid.sd.1 <- as.data.frame(VarCorr(topmod))$sdcor[2]
+plot.sd.1 <- as.data.frame(VarCorr(topmod1))$sdcor[1]
+resid.sd.1 <- as.data.frame(VarCorr(topmod1))$sdcor[2]
 
 plot.sd.2 <- as.data.frame(VarCorr(topmod2))$sdcor[1]
 resid.sd.2 <- as.data.frame(VarCorr(topmod2))$sdcor[2]
 
-sims <- 1000
+sims <- 10000
 
 # pv <- matrix(nrow = sims, ncol = nrow(SCMU.BEUTI))
 # for(i in 1:sims){
@@ -453,11 +411,11 @@ sims <- 1000
 pv.BEUTI <- matrix(nrow = sims, ncol = nrow(SCMU.BEUTI))
 for(i in 1:sims){
   #choose a model 
-  model <- which(rmultinom(n = 1, size = 1,prob = c(AIC.tab[,3]))==1)
+  model <- which(rmultinom(n = 1, size = 1,prob = c(AIC.tab2[,3]))==1)
   if(model == 1){
     #we simulate conditioning on no specific random effects levels
-    y <- unlist(simulate(topmod))
-    bmod <- refit(topmod2,y)
+    y <- unlist(simulate(topmod1))
+    bmod <- refit(topmod1,y)
     pv.BEUTI[i,] <- predict(bmod, re.form = ~0, newdata = SCMU.BEUTI) + rnorm(1,0,sd=plot.sd.1) + rnorm(1,0,sd=resid.sd.1)
   }
   if(model == 2){
@@ -476,27 +434,27 @@ lines(SCMU.BEUTI$BEUTI[1:100],y = apply(pv.BEUTI,2,function(x)quantile(x,probs= 
   
 ```
 
+## NPGO
 ```{r predict NPGO}
-
 SCMU.NPGO <- SCMU.null
 SCMU.NPGO$NPGO <- rep(seq(from = min(SCMUdf$NPGO),to = max(SCMUdf$NPGO),length.out = 100),2)
 
-plot.sd.1 <- as.data.frame(VarCorr(topmod))$sdcor[1]
-resid.sd.1 <- as.data.frame(VarCorr(topmod))$sdcor[2]
+plot.sd.1 <- as.data.frame(VarCorr(topmod1))$sdcor[1]
+resid.sd.1 <- as.data.frame(VarCorr(topmod1))$sdcor[2]
 
 plot.sd.2 <- as.data.frame(VarCorr(topmod2))$sdcor[1]
 resid.sd.2 <- as.data.frame(VarCorr(topmod2))$sdcor[2]
 
-sims <- 1000
+sims <- 10000
 
 pv.NPGO <- matrix(nrow = sims, ncol = nrow(SCMU.NPGO))
 for(i in 1:sims){
   #choose a model 
-  model <- which(rmultinom(n = 1, size = 1,prob = c(AIC.tab[,3]))==1)
+  model <- which(rmultinom(n = 1, size = 1,prob = c(AIC.tab2[,3]))==1)
   if(model == 1){
     #we simulate conditioning on no specific random effects levels
-    y <- unlist(simulate(topmod))
-    bmod <- refit(topmod2,y)
+    y <- unlist(simulate(topmod1))
+    bmod <- refit(topmod1,y)
     pv.NPGO[i,] <- predict(bmod, re.form = ~0, newdata = SCMU.NPGO) + rnorm(1,0,sd=plot.sd.1) + rnorm(1,0,sd=resid.sd.1)
   }
   if(model == 2){
@@ -513,13 +471,14 @@ lines(SCMU.NPGO$NPGO[1:100],y = apply(pv.NPGO,2,function(x)quantile(x,probs= 0.0
 lines(SCMU.NPGO$NPGO[1:100],y = apply(pv.NPGO,2,function(x)quantile(x,probs= 0.975))[1:100],lty=2)
   
 ```
-```{r predict ONI}
 
+## ONI
+```{r predict ONI}
 SCMU.ONI <- SCMU.null
 SCMU.ONI$ONI <- rep(seq(from = min(SCMUdf$ONI),to = max(SCMUdf$ONI),length.out = 100),2)
 
-plot.sd.1 <- as.data.frame(VarCorr(topmod))$sdcor[1]
-resid.sd.1 <- as.data.frame(VarCorr(topmod))$sdcor[2]
+plot.sd.1 <- as.data.frame(VarCorr(topmod1))$sdcor[1]
+resid.sd.1 <- as.data.frame(VarCorr(topmod1))$sdcor[2]
 
 plot.sd.2 <- as.data.frame(VarCorr(topmod2))$sdcor[1]
 resid.sd.2 <- as.data.frame(VarCorr(topmod2))$sdcor[2]
@@ -529,11 +488,11 @@ sims <- 10000
 pv.ONI <- matrix(nrow = sims, ncol = nrow(SCMU.ONI))
 for(i in 1:sims){
   #choose a model 
-  model <- which(rmultinom(n = 1, size = 1,prob = c(AIC.tab[,3]))==1)
+  model <- which(rmultinom(n = 1, size = 1,prob = c(AIC.tab2[,3]))==1)
   if(model == 1){
     #we simulate conditioning on no specific random effects levels
-    y <- unlist(simulate(topmod))
-    bmod <- refit(topmod2,y)
+    y <- unlist(simulate(topmod1))
+    bmod <- refit(topmod1,y)
     pv.ONI[i,] <- predict(bmod, re.form = ~0, newdata = SCMU.ONI) + rnorm(1,0,sd=plot.sd.1) + rnorm(1,0,sd=resid.sd.1)
   }
   if(model == 2){
@@ -549,13 +508,14 @@ lines(SCMU.ONI$ONI[1:100],y = apply(pv.ONI,2,function(x)quantile(x,probs= 0.025)
 lines(SCMU.ONI$ONI[1:100],y = apply(pv.ONI,2,function(x)quantile(x,probs= 0.975))[1:100],lty=2)
   
 ```
-```{r predict SST}
 
+## SST
+```{r predict SST}
 SCMU.SST <- SCMU.null
 SCMU.SST$SST <- rep(seq(from = min(SCMUdf$SST),to = max(SCMUdf$SST),length.out = 100),2)
 
-plot.sd.1 <- as.data.frame(VarCorr(topmod))$sdcor[1]
-resid.sd.1 <- as.data.frame(VarCorr(topmod))$sdcor[2]
+plot.sd.1 <- as.data.frame(VarCorr(topmod1))$sdcor[1]
+resid.sd.1 <- as.data.frame(VarCorr(topmod1))$sdcor[2]
 
 plot.sd.2 <- as.data.frame(VarCorr(topmod2))$sdcor[1]
 resid.sd.2 <- as.data.frame(VarCorr(topmod2))$sdcor[2]
@@ -565,11 +525,11 @@ sims <- 10000
 pv.SST <- matrix(nrow = sims, ncol = nrow(SCMU.SST))
 for(i in 1:sims){
   #choose a model 
-  model <- which(rmultinom(n = 1, size = 1,prob = c(AIC.tab[,3]))==1)
+  model <- which(rmultinom(n = 1, size = 1,prob = c(AIC.tab2[,3]))==1)
   if(model == 1){
     #we simulate conditioning on no specific random effects levels
-    y <- unlist(simulate(topmod))
-    bmod <- refit(topmod2,y)
+    y <- unlist(simulate(topmod1))
+    bmod <- refit(topmod1,y)
     pv.SST[i,] <- predict(bmod, re.form = ~0, newdata = SCMU.SST) + rnorm(1,0,sd=plot.sd.1) + rnorm(1,0,sd=resid.sd.1)
   }
   if(model == 2){
@@ -583,12 +543,10 @@ for(i in 1:sims){
 plot(SCMU.SST$SST[1:100],y = apply(pv.SST,2,mean)[1:100],xlab = "SST",ylab = "Egg Size",type = "l",ylim = c(1500,2500))
 lines(SCMU.SST$SST[1:100],y = apply(pv.SST,2,function(x)quantile(x,probs= 0.025))[1:100],lty=2)
 lines(SCMU.SST$SST[1:100],y = apply(pv.SST,2,function(x)quantile(x,probs= 0.975))[1:100],lty=2)
-  
 ```
 
-
+## Plots
 ```{r combine plots}
-
 plot(SCMU.BEUTI$BEUTI[1:100],y = apply(pv.BEUTI,2,mean)[1:100],xlab = "BEUTI",ylab = "Egg Size",type = "l",ylim = c(1500,2500))
 lines(SCMU.BEUTI$BEUTI[1:100],y = apply(pv.BEUTI,2,function(x)quantile(x,probs= 0.025))[1:100],lty=2)
 lines(SCMU.BEUTI$BEUTI[1:100],y = apply(pv.BEUTI,2,function(x)quantile(x,probs= 0.975))[1:100],lty=2)
@@ -604,6 +562,5 @@ lines(SCMU.ONI$ONI[1:100],y = apply(pv.ONI,2,function(x)quantile(x,probs= 0.975)
 plot(SCMU.SST$SST[1:100],y = apply(pv.SST,2,mean)[1:100],xlab = "SST",ylab = "Egg Size",type = "l",ylim = c(1500,2500))
 lines(SCMU.SST$SST[1:100],y = apply(pv.SST,2,function(x)quantile(x,probs= 0.025))[1:100],lty=2)x
 lines(SCMU.SST$SST[1:100],y = apply(pv.SST,2,function(x)quantile(x,probs= 0.975))[1:100],lty=2)
-  
 ```
 
