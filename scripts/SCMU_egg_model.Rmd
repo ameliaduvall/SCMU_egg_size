@@ -36,12 +36,6 @@ SCMUdf <- left_join(egg, covars, by = "Year") %>%
   filter(TrueOrder == TRUE) %>% # egg order known only
   select(Year, Observer, Plot, Size, EggOrder, ANCHL, BEUTI, NPGO, ONI, PDO, SST) %>%
   as_tibble()
-<<<<<<< HEAD
-
-###SJC ADDED 
-#SCMUdf <- SCMUdf[-c(which(is.na(SCMUdf$Observer==TRUE))),]
-=======
->>>>>>> 645e8459c6442f40b202db6ba5d0adc5a6678bbb
 ```
 
 # Null Intercept-Only Model with 2 random effects
@@ -100,7 +94,7 @@ cov_names <- colnames(predictors) <- colnames(SCMUdf[,5:11])
 ## create set of all possible combinations
 full_set <- expand.grid(predictors) # 128 combinations
 
-## select models with correlated predictors
+## select models with correlated predictors (see SCMU_egg_covariates.Rmd)
 ii <- which(full_set$ANCHL + full_set$NPGO == 2 |
               full_set$ANCHL + full_set$PDO == 2 |
               full_set$ANCHL + full_set$SST == 2 |
@@ -144,19 +138,25 @@ cov_names[use_set[12,]] # Egg order, BEUTI, NPGO
 cov_names[use_set[32,]] # Egg order, BEUTI, ONI, SST
 cov_names[use_set[10,]] # Egg order, NPGO (>2 AIC)
 cov_names[use_set[20,]] # Egg order, ANCHL, BEUTI, ONI (>2 AIC)
+cov_names[use_set[28,]] # Egg order, BEUTI, SST (>2 AIC)
+cov_names[use_set[8,]] # Egg order, ANCHL, BEUTI (>2 AIC)
 
 ## run top models
 topmod1 <- lmer(Size ~ EggOrder + BEUTI + NPGO + (1 | Plot), data = SCMUdf, REML = TRUE)
 topmod2 <- lmer(Size ~ EggOrder + BEUTI + ONI + SST + (1 | Plot), data = SCMUdf, REML = TRUE)
 topmod3 <- lmer(Size ~ EggOrder + NPGO + (1 | Plot), data = SCMUdf, REML = TRUE)
 topmod4 <- lmer(Size ~ EggOrder + ANCHL + BEUTI + ONI + (1 | Plot), data = SCMUdf, REML = TRUE)
+topmod5 <- lmer(Size ~ EggOrder + BEUTI + SST + (1 | Plot), data = SCMUdf, REML = TRUE)
+topmod6 <-lmer(Size ~ EggOrder + ANCHL + BEUTI + (1 | Plot), data = SCMUdf, REML = TRUE)
 
 ## Model selection table
-AIC.tab <- matrix(NA, nrow = 4, ncol = 3) # 4 rows for 4 top models
+AIC.tab <- matrix(NA, nrow = 6, ncol = 3) # 6 rows for 6 top models
 AIC.tab[1,1] <- AIC(topmod1) # AIC for topmod1 in first row, first column
 AIC.tab[2,1] <- AIC(topmod2) # AIC for topmod2 in second row, first column
-AIC.tab[3,1] <- AIC(topmod3) # AIC for topmod2 in second row, first column
-AIC.tab[4,1] <- AIC(topmod4) # AIC for topmod2 in second row, first column
+AIC.tab[3,1] <- AIC(topmod3) # AIC for topmod3 in second row, first column
+AIC.tab[4,1] <- AIC(topmod4) # AIC for topmod4 in second row, first column
+AIC.tab[5,1] <- AIC(topmod5) # AIC for topmod5 in second row, first column
+AIC.tab[6,1] <- AIC(topmod6) # AIC for topmod6 in second row, first column
 AIC.tab[,2] <- AIC.tab[,1] - min(AIC.tab[,1]) # calculate delta AIC
 AIC.tab[,3] <- exp(-0.5*AIC.tab[,2])/(sum(exp(-0.5*AIC.tab[,2]))) # calculate model weights
 colnames(AIC.tab) <- c("AIC", "deltaAIC", "model_weights")
