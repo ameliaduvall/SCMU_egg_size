@@ -151,6 +151,9 @@ topmod2 <- lmer(Size ~ EggOrder + BEUTI + ONI + SST + (1 | Plot), data = SCMUdf,
 topmod3 <- lmer(Size ~ EggOrder + NPGO + (1 | Plot), data = SCMUdf, REML = TRUE)
 topmod4 <- lmer(Size ~ EggOrder + ANCHL + BEUTI + ONI + (1 | Plot), data = SCMUdf, REML = TRUE)
 
+topmod5 <- lmer(Size ~ EggOrder + ONI + PDO + SST + (1 | Plot), data = SCMUdf, REML = TRUE)
+topmod6 <- lmer(Size ~ EggOrder + BEUTI + SST + (1 | Plot), data = SCMUdf, REML = TRUE)
+
 ## Model selection table
 AIC.tab <- matrix(NA, nrow = 4, ncol = 3) # 4 rows for 4 top models
 AIC.tab[1,1] <- AIC(topmod1) # AIC for topmod1 in first row, first column
@@ -210,7 +213,7 @@ These diagnostics are done for the global model.
 ### Histogram of Predicted Values
 ```{r d1}
 ## extract predicted values and plot
-preds <- predict(topmod)
+preds <- predict(topmod2)
 ggplot() + 
   geom_histogram(mapping = aes(preds), bins = 20) + # set bins 
   theme_minimal()
@@ -220,7 +223,7 @@ Since we assumed our data are normal, we want to see an approximately normal dis
 ### Histogram of Residuals
 ```{r d2}
 ## extract residuals and plot
-resids <- residuals(topmod)
+resids <- residuals(topmod2)
 ggplot() + 
   geom_histogram(mapping = aes(resids), bins = 20) + 
   theme_minimal()
@@ -230,8 +233,8 @@ Since we assumed our data are normal, we want to see an approximately normal dis
 ### Model Coefficients
 ```{r d3}
 ## extract coeffs and random effects
-coef(topmod) # this include fixed and random effects
-ranef_pl <- ranef(topmod)$Plot # plot random effect only
+coef(topmod2) # this include fixed and random effects
+ranef_pl <- ranef(topmod2)$Plot # plot random effect only
 
 ## look at data going into random effects
 table(SCMUdf$Plot)
@@ -253,7 +256,7 @@ We want our points to fall approximately on the diagonal lines.
 ### Fitted v Residuals
 ```{r d5}
 ## plot residuals versus fitted values
-yh <- fitted(topmod)
+yh <- fitted(topmod2)
 plot(yh, resids, las = 1, pch = 16,
      xlab = "Fitted", ylab = "Residuals",
      main = "Residuals vs fitted")
