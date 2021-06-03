@@ -23,10 +23,14 @@ library(sjPlot)
 This is `r paste0("v.", (Sys.Date()))`
 
 # Introduction
-This document tests the inclusion of lagged and temporally restricted environmental covariates for the Scripps's Murrelet egg size model (see SCMU_egg_model.Rmd). We initially selected the time period January-June for covariates available at a monthly sampling rate due to the overlap with the murrelet breeding season. However, we felt it was pertinent to tests lags on all environmental covariate data since the effects of some environmental conditions may take time to manifest in terms of prey availability for murrelets during the breeding season. For each environmental covariate, we used single covariate models to test the support of a non-lagged covariate (2009-2017 data) versus a one-year lagged covariate (2008-2016 data) via AIC model selection. Most covariates were available at a monthly sampling rate, with the exception of larval anchovy. For covariates at a monthly sampling rate, we also tested a "full" covariate model with monthly sampling data averaged across 12 months versus a "half" covariate model with monthly sampling data averaged across 6 months (January-June).
+The covariates we selected to test the relationship between Scripps's Murrelet egg size and oceanographic conditions are collected at various temporal and spatial scales. In addition, the effects of some oceanographic conditions may take time to manifest in terms of prey availability for murrelets during the breeding season and other impacts that may affect egg size. Given the differences in spatial and temporal extent of oceanographic variables and their impacts on seabirds, we tested all environmental covariates for the Scripps's Murrelet egg size model (see SCMU_egg_model.Rmd) under four scenarios:
+1. Monthly averages for January to June in year $t$ (6 months) to encompass only pre-breeding and laying season ("half")
+2. Monthly averages for July in year $t-1$ to June in year $t$ (12 months) to encompass the entire post-breeding, pre-breeding, and breeding season ("full")
+3. Monthly averages for January to June in year $t-1$ (6 months) to encompass only pre-breeding and laying season in the previous year ("half_lag")
+4. Monthly averages for July in year $t-2$ to June in year $t-1$ (12 months) to encompass the entire post-breeding, pre-breeding, and breeding season in the previous year ("full_lag")
 
 We tested 6 covariates: 
-1. Larval anchovy - SCC (ANCHL)  
+1. Larval anchovy (ANCHL) - This covariate is only available at a yearly sampling rate. Therefore, we tested this variable under two scenarios: 1) yearly value in time $t$, and 2) yearly value in time $t-1$. 
 2. Biologically Effective Upwelling Transport Index (BEUTI)  
 3. Sea Surface Temperature (SST)  
 4. North Pacific Gyre Oscillation Index (NPGO)  
@@ -53,75 +57,59 @@ ANCHLraw  <- read.csv(here("data", "covariates", "cciea_EI_FBS_2020_a29e_1fd0_40
 ## are there NAs in the data?
 sum(is.na(ANCHLraw$relative_abundance))
 
-## clean data and filter down to years 2008-2017
+## clean data 
 ANCHL <- ANCHLraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
   mutate(Year = year(time)) %>%
   mutate(ANCHL = as.numeric(relative_abundance)) %>%
   arrange(Year) %>%
-  filter(Year >= 2008 & Year <= 2017) %>%
   dplyr::select(Year, ANCHL) 
 
-## create no lagged dataset from 2009-2017 and scale values
-ANCHL_nolag <- ANCHL %>%
+## create dataset from 2009-2017 for values in year t 
+ANCHL_full <- ANCHL %>%
   filter(Year >= 2009 & Year <= 2017) %>%
-  mutate(ANCHL_nolag = scale(ANCHL)) %>%
-  dplyr::select(Year, ANCHL_nolag)
+  mutate(ANCHL_full = scale(ANCHL)) %>%
+  dplyr::select(Year, ANCHL_full)
 
-## created one-year lagged dataset from 2008-2016 and scale values
-ANCHL_lag <- ANCHL %>%
+## create dataset from 2008-2016 for values in year t-1 
+ANCHL_full_lag <- ANCHL %>%
   filter(Year >= 2008 & Year <= 2016) %>%
   mutate(TrueYear = Year,
          Year = TrueYear + 1,
-         ANCHL_lag = scale(ANCHL)) %>%
-  dplyr::select(Year, ANCHL_lag)
+         ANCHL_full_lag = scale(ANCHL)) %>%
+  dplyr::select(Year, ANCHL_full_lag)
 
 ## join no-lag and lag datasets
-ANCHL1 <- full_join(ANCHL_nolag, ANCHL_lag, by = "Year")
+ANCHL1 <- full_join(ANCHL_full, ANCHL_full_lag, by = "Year")
 
 ## join with egg size data
 ANCHLdf1 <- left_join(egg, ANCHL1, by = "Year")
   
 ## run models
-ANCHL_nolag_mod <- lmer(Size ~ ANCHL_nolag + (1 | Plot), data = ANCHLdf1) 
-ANCHL_lag_mod <- lmer(Size ~ ANCHL_lag + (1 | Plot), data = ANCHLdf1)
+ANCHL_full_mod <- lmer(Size ~ ANCHL_full + (1 | Plot), data = ANCHLdf1) 
+ANCHL_full_lag_mod <- lmer(Size ~ ANCHL_full_lag + (1 | Plot), data = ANCHLdf1)
 
 ## compare AIC
-ANCHL_nolag_AIC <- AIC(ANCHL_nolag_mod)
-ANCHL_lag_AIC <- AIC(ANCHL_lag_mod)
+ANCHL_full_AIC <- AIC(ANCHL_full_mod)
+ANCHL_full_lag_AIC <- AIC(ANCHL_full_lag_mod)
 
 ## True or False, is the ANCHL no lag model AIC smaller than the ANCHL lag AIC?
-ANCHL_nolag_AIC < ANCHL_lag_AIC
+ANCHL_full_AIC < ANCHL_full_lag_AIC
 
 ## What is the delta AIC?
-ANCHL_lag_AIC - ANCHL_nolag_AIC
+ANCHL_full_lag_AIC - ANCHL_full_AIC
 ```
-There is support to use the non-lagged ANCHL data since the lagged data is delta AIC > 2. 
+There is support to use the ANCHL data in year $t$ since the lagged data is delta AIC > 2. 
 
 ## BEUTI
-First, we tested against using data from the entire year versus from January-June. 
 ```{r BEUTI1}
 BEUTIraw <- read_csv(here("data", "covariates", "cciea_OC_BEUTI_784c_ef9f_af6f.csv"))
 
 ## are there NAs in the data?
 sum(is.na(BEUTIraw$beuti))
 
-## Average sampling data by year over all 12 months and scale
-BEUTI_full <- BEUTIraw %>%
-  slice(-1) %>%
-  mutate(time = ymd_hms(time)) %>%
-  mutate(Year = year(time)) %>%
-  mutate(beuti = as.numeric(beuti)) %>%
-  group_by(Year) %>%
-  summarise(BEUTI = mean(beuti, na.rm = TRUE)) %>%
-  dplyr::select(Year, BEUTI) %>%
-  filter(Year >= 2009 & Year <= 2017) %>%
-  mutate(BEUTI_full = scale(BEUTI)) %>%
-  arrange(Year) %>%
-  dplyr::select(Year, BEUTI_full)
-
-## Average sampling data by year for January-June only and scale
+## Scenario 1: "half" dataset from Jan-June in time t
 BEUTI_half <- BEUTIraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
@@ -137,105 +125,25 @@ BEUTI_half <- BEUTIraw %>%
   arrange(Year) %>%
   dplyr::select(Year, BEUTI_half)
 
-## join 2 datasets together
-BEUTI1 <- full_join(BEUTI_full, BEUTI_half, by = "Year")
-
-## join with egg size data
-BEUTIdf1 <- left_join(egg, BEUTI1, by = "Year")
-  
-## run models
-BEUTI_full_mod <- lmer(Size ~ BEUTI_full + (1 | Plot), data = BEUTIdf1) 
-BEUTI_half_mod <- lmer(Size ~ BEUTI_half + (1 | Plot), data = BEUTIdf1)
-
-## compare AIC
-BEUTI_full_AIC <- AIC(BEUTI_full_mod)
-BEUTI_half_AIC <- AIC(BEUTI_half_mod)
-
-## True or False, is the Jan-Jun BEUTI model AIC smaller than the BEUTI full AIC?
-BEUTI_half_AIC < BEUTI_full_AIC
-
-## What is the delta AIC?
-BEUTI_half_AIC - BEUTI_full_AIC
-```
-Both models are supported since they are within 2 delta AIC. 
-
-Then, using the half-year model, we tested a non-lagged versus one-year lagged dataset.
-```{r BEUTI2}
-## no lag, data averaged for Jan-June (same as BEUTI_half above) and scaled
-BEUTI_nolag <- BEUTIraw %>%
+## Scenario 2: "full" dataset from July in time t-1 to June in time t
+BEUTI_full <- BEUTIraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
   mutate(Year = year(time),
          Month = month(time)) %>%
-  mutate(beuti = as.numeric(beuti)) %>%
-  filter(Month == 1 | Month == 2 | Month == 3 |Month == 4 | Month == 5 | Month == 6) %>%
+  mutate(beuti = as.numeric(beuti),
+         split_year = ifelse(Month == 7 | Month == 8 | Month == 9 | Month == 10 | Month == 11 | Month == 12,
+                             Year + 1, Year)) %>%
+  rename(Year = split_year, true_year = Year) %>%
   group_by(Year) %>%
   summarise(BEUTI = mean(beuti, na.rm = TRUE)) %>%
   dplyr::select(Year, BEUTI) %>%
   filter(Year >= 2009 & Year <= 2017) %>%
-  mutate(BEUTI_nolag = scale(BEUTI)) %>%
+  mutate(BEUTI_full = scale(BEUTI)) %>%
   arrange(Year) %>%
-  dplyr::select(Year, BEUTI_nolag)
+  dplyr::select(Year, BEUTI_full)
 
-## one year lag, data averaged for Jan-June and scaled
-BEUTI_lag <- BEUTIraw %>%
-  slice(-1) %>%
-  mutate(time = ymd_hms(time)) %>%
-  mutate(Year = year(time),
-         Month = month(time)) %>%
-  mutate(beuti = as.numeric(beuti)) %>%
-  filter(Month == 1 | Month == 2 | Month == 3 |Month == 4 | Month == 5 | Month == 6) %>%
-  group_by(Year) %>%
-  summarise(BEUTI = mean(beuti, na.rm = TRUE)) %>%
-  dplyr::select(Year, BEUTI) %>%
-  filter(Year >= 2008 & Year <= 2016) %>%
-  mutate(BEUTI_lag = scale(BEUTI),
-         TrueYear = Year,
-         Year = TrueYear + 1) %>%
-  arrange(Year) %>%
-  dplyr::select(Year, BEUTI_lag)
-
-## join 2 datasets together
-BEUTI2 <- full_join(BEUTI_nolag, BEUTI_lag, by = "Year")
-
-## join with egg size data
-BEUTIdf2 <- left_join(egg, BEUTI2, by = "Year")
-  
-## run models
-BEUTI_nolag_mod <- lmer(Size ~ BEUTI_nolag + (1 | Plot), data = BEUTIdf2) 
-BEUTI_lag_mod <- lmer(Size ~ BEUTI_lag + (1 | Plot), data = BEUTIdf2)
-
-## compare AIC
-BEUTI_nolag_AIC <- AIC(BEUTI_nolag_mod)
-BEUTI_lag_AIC <- AIC(BEUTI_lag_mod)
-
-## True or False, is the no lag BEUTI model AIC smaller than the BEUTI lag AIC?
-BEUTI_nolag_AIC < BEUTI_lag_AIC
-
-## What is the delta AIC?
-BEUTI_nolag_AIC - BEUTI_lag_AIC
-```
-There is more support for a one-year lagged BEUTI with the half-year data versus a no-lag BEUTI with the half year data. 
-
-Next, we compared a full one-year lagged BEUTI versus half one-year lagged BEUTI.
-```{r BEUTI3}
-## one year lag, averaged across 12 months and scaled
-BEUTI_full_lag <- BEUTIraw %>%
-  slice(-1) %>%
-  mutate(time = ymd_hms(time)) %>%
-  mutate(Year = year(time)) %>%
-  mutate(beuti = as.numeric(beuti)) %>%
-  group_by(Year) %>%
-  summarise(BEUTI = mean(beuti, na.rm = TRUE)) %>%
-  dplyr::select(Year, BEUTI) %>%
-  filter(Year >= 2008 & Year <= 2016) %>%
-  mutate(BEUTI_full_lag = scale(BEUTI),
-         TrueYear = Year,
-         Year = TrueYear + 1) %>%
-  arrange(Year) %>%
-  dplyr::select(Year, BEUTI_full_lag)
-
-## one year lag, averaged for Jan-June (same above BEUTI_lag above) and scaled
+## Scenario 3: "half_lag" dataset from Jan-June in time t-1
 BEUTI_half_lag <- BEUTIraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
@@ -243,37 +151,62 @@ BEUTI_half_lag <- BEUTIraw %>%
          Month = month(time)) %>%
   mutate(beuti = as.numeric(beuti)) %>%
   filter(Month == 1 | Month == 2 | Month == 3 |Month == 4 | Month == 5 | Month == 6) %>%
+  mutate(Year = Year + 1) %>%
   group_by(Year) %>%
   summarise(BEUTI = mean(beuti, na.rm = TRUE)) %>%
   dplyr::select(Year, BEUTI) %>%
-  filter(Year >= 2008 & Year <= 2016) %>%
-  mutate(BEUTI_half_lag = scale(BEUTI),
-         TrueYear = Year,
-         Year = TrueYear + 1) %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  mutate(BEUTI_half_lag = scale(BEUTI)) %>%
   arrange(Year) %>%
   dplyr::select(Year, BEUTI_half_lag)
 
-## join 2 datasets together
-BEUTI3 <- full_join(BEUTI_full_lag, BEUTI_half_lag, by = "Year")
+## Scenario 4: "full_lag" dataset from July in time t-2 to June in time t-1
+BEUTI_full_lag <- BEUTIraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time),
+         Month = month(time)) %>%
+  mutate(beuti = as.numeric(beuti),
+         split_year = ifelse(Month == 7 | Month == 8 | Month == 9 | Month == 10 | Month == 11 | Month == 12,
+                             Year + 1, Year)) %>%
+  rename(Year = split_year, true_year = Year) %>%
+  mutate(Year = Year + 1) %>%
+  group_by(Year) %>%
+  summarise(BEUTI = mean(beuti, na.rm = TRUE)) %>%
+  dplyr::select(Year, BEUTI) %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  mutate(BEUTI_full_lag = scale(BEUTI)) %>%
+  arrange(Year) %>%
+  dplyr::select(Year, BEUTI_full_lag)
+
+## join datasets together
+BEUTI1 <- full_join(BEUTI_half, BEUTI_full, by = "Year")
+BEUTI2 <- full_join(BEUTI1, BEUTI_half_lag, by = "Year")
+BEUTI3 <- full_join(BEUTI2, BEUTI_full_lag, by = "Year")
 
 ## join with egg size data
-BEUTIdf3 <- left_join(egg, BEUTI3, by = "Year")
-
-## run model
-BEUTI_full_lag_mod <- lmer(Size ~ BEUTI_full_lag + (1 | Plot), data = BEUTIdf3) 
-BEUTI_half_lag_mod <- lmer(Size ~ BEUTI_half_lag + (1 | Plot), data = BEUTIdf3) 
+BEUTI_df <- left_join(egg, BEUTI3, by = "Year")
   
-## compare AIC
-BEUTI_full_lag_AIC <- AIC(BEUTI_full_lag_mod)
-BEUTI_half_lag_AIC <- AIC(BEUTI_half_lag_mod)
+## run models
+BEUTI_half_mod <- lmer(Size ~ BEUTI_half + (1 | Plot), data = BEUTI_df)
+BEUTI_full_mod <- lmer(Size ~ BEUTI_full + (1 | Plot), data = BEUTI_df)
+BEUTI_half_lag_mod <- lmer(Size ~ BEUTI_half_lag + (1 | Plot), data = BEUTI_df)
+BEUTI_full_lag_mod <- lmer(Size ~ BEUTI_full_lag + (1 | Plot), data = BEUTI_df)
 
-## True or False, is the half lag BEUTI model AIC smaller than the BEUTI full lag AIC?
-BEUTI_half_lag_AIC < BEUTI_full_lag_AIC
-
-## What is the delta AIC?
-BEUTI_full_lag_AIC - BEUTI_half_lag_AIC
+## Model selection table
+BEUTI_AIC <- matrix(NA, nrow = 4, ncol = 3) # 4 rows for 6 top models
+BEUTI_AIC[1,1] <- AIC(BEUTI_half_mod) 
+BEUTI_AIC[2,1] <- AIC(BEUTI_full_mod) 
+BEUTI_AIC[3,1] <- AIC(BEUTI_half_lag_mod)
+BEUTI_AIC[4,1] <- AIC(BEUTI_full_lag_mod) 
+BEUTI_AIC[,2] <- BEUTI_AIC[,1] - min(BEUTI_AIC[,1]) # calculate delta AIC
+BEUTI_AIC[,3] <- exp(-0.5*BEUTI_AIC[,2])/(sum(exp(-0.5*BEUTI_AIC[,2]))) # calculate model weights
+colnames(BEUTI_AIC) <- c("AIC", "deltaAIC", "model_weights")
+rownames(BEUTI_AIC) <- c("half", "full", "half_lag", "full_lag")
+print(BEUTI_AIC)
 ```
-Both models are supported (which is what we would expect based on the first two tests). There is support to use 12-month averaged lagged data OR 6-month averaged lagged data for BEUTI. 
+
+<!-- updated code up to here! -->
 
 ## SST
 First, we tested against using data from the entire year versus from January-June. 
