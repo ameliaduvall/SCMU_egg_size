@@ -96,20 +96,32 @@ full_set <- expand.grid(predictors) # 128 combinations
 
 ## select models with correlated predictors (see SCMU_egg_covariates.Rmd)
 ii <- which(full_set$ANCHL + full_set$NPGO == 2 |
+              full_set$ANCHL + full_set$ONI == 2 |
               full_set$ANCHL + full_set$PDO == 2 |
-              full_set$ANCHL + full_set$SST == 2 |
+              full_set$BEUTI + full_set$ONI == 2 |
               full_set$BEUTI + full_set$PDO == 2 |
-              full_set$NPGO + full_set$ONI == 2 |
               full_set$NPGO + full_set$PDO == 2 |
               full_set$NPGO + full_set$SST == 2 |
-              full_set$PDO + full_set$SST == 2) # 96 models
+              full_set$ONI + full_set$PDO == 2) # 98 models
 
 ## create reduced set of models and convert to a matrix for easier indexing
 use_set <- as.matrix(full_set[-ii,]) 
 
 ## number of models in set
-(n_mods <- nrow(use_set)) # 32 models out of potential 128
+(n_mods <- nrow(use_set)) # 30 models out of potential 128
 
+```
+
+## Find global model
+```{r global}
+
+rowSums(use_set)
+#cov_names[use_set[72,]]
+
+
+
+```
+```{r modsel}
 ## create empty matrix for storing results
 mod_res <- matrix(NA, n_mods, 1)
 colnames(mod_res) <- c("AIC")
@@ -135,22 +147,19 @@ delta_res[,"deltaAIC"] <- mod_res[,"AIC"] - min(mod_res[,"AIC"])
 
 ## "best" models from our set
 cov_names[use_set[12,]] # Egg order, BEUTI, NPGO
-cov_names[use_set[32,]] # Egg order, BEUTI, ONI, SST
+cov_names[use_set[16,]] # Egg order, NPGO, ONI
+cov_names[use_set[26,]] # Egg order, ANCHL, BEUTI, SST (>2 AIC)
+cov_names[use_set[30,]] # Egg order, PDO, SST (>2 AIC)
 cov_names[use_set[10,]] # Egg order, NPGO (>2 AIC)
-cov_names[use_set[20,]] # Egg order, ANCHL, BEUTI, ONI (>2 AIC)
-cov_names[use_set[28,]] # Egg order, BEUTI, SST (>2 AIC)
-cov_names[use_set[8,]] # Egg order, ANCHL, BEUTI (>2 AIC)
+cov_names[use_set[24,]] # Egg order, BEUTI, SST (>2 AIC)
 
 ## run top models
 topmod1 <- lmer(Size ~ EggOrder + BEUTI + NPGO + (1 | Plot), data = SCMUdf, REML = TRUE)
-topmod2 <- lmer(Size ~ EggOrder + BEUTI + ONI + SST + (1 | Plot), data = SCMUdf, REML = TRUE)
-topmod3 <- lmer(Size ~ EggOrder + NPGO + (1 | Plot), data = SCMUdf, REML = TRUE)
-topmod4 <- lmer(Size ~ EggOrder + ANCHL + BEUTI + ONI + (1 | Plot), data = SCMUdf, REML = TRUE)
-topmod5 <- lmer(Size ~ EggOrder + BEUTI + SST + (1 | Plot), data = SCMUdf, REML = TRUE)
-topmod6 <-lmer(Size ~ EggOrder + ANCHL + BEUTI + (1 | Plot), data = SCMUdf, REML = TRUE)
-
-topmod5 <- lmer(Size ~ EggOrder + ONI + PDO + SST + (1 | Plot), data = SCMUdf, REML = TRUE)
-topmod6 <- lmer(Size ~ EggOrder + BEUTI + SST + (1 | Plot), data = SCMUdf, REML = TRUE)
+topmod2 <- lmer(Size ~ EggOrder + NPGO + ONI + (1 | Plot), data = SCMUdf, REML = TRUE)
+topmod3 <- lmer(Size ~ EggOrder + ANCHL + BEUTI + SST + (1 | Plot), data = SCMUdf, REML = TRUE)
+topmod4 <- lmer(Size ~ EggOrder + PDO + SST + (1 | Plot), data = SCMUdf, REML = TRUE)
+topmod5 <- lmer(Size ~ EggOrder + NPGO + (1 | Plot), data = SCMUdf, REML = TRUE)
+topmod6 <-lmer(Size ~ EggOrder + BEUTI + SST + (1 | Plot), data = SCMUdf, REML = TRUE)
 
 ## Model selection table
 AIC.tab <- matrix(NA, nrow = 6, ncol = 3) # 6 rows for 6 top models
@@ -176,23 +185,23 @@ summary(topmod1)
 ```
 ## Top Model 2
 ```{r topmod2}
-topmod2 <- lmer(Size ~ EggOrder + BEUTI + ONI + SST + (1 | Plot), data = SCMUdf, REML = TRUE)
+topmod2 <- lmer(Size ~ EggOrder + BEUTI + NPGO + ONI + (1 | Plot), data = SCMUdf, REML = TRUE)
 summary(topmod2)
 ```
 
 # Likelihood Ratio Tests
-We used LRTs using the top model to test the support for inclusion of random effects (Plot, Observer). There are NAs in the observer data from 2015. These NAs need to be removed prior to completing LRT tests. See https://cran.r-project.org/web/packages/RLRsim/RLRsim.pdf for info.
+We used LRTs using the global model to test the support for inclusion of random effects (Plot, Observer). There are NAs in the observer data from 2015. These NAs need to be removed prior to completing LRT tests. See https://cran.r-project.org/web/packages/RLRsim/RLRsim.pdf for info.
 ```{r likelihoodratio}
 SCMUdf2 <- SCMUdf[-c(which(is.na(SCMUdf$Observer==TRUE))),]
 
-## top model
-bm_both <- lmer(Size ~ EggOrder + BEUTI + NPGO + (1 | Observer) + (1 | Plot), data = SCMUdf2, REML = FALSE)
+## global model
+bm_both <- lmer(Size ~ EggOrder + ANCHL + BEUTI + SST + (1 | Observer) + (1 | Plot), data = SCMUdf2, REML = FALSE)
 
 ## run model with plot RE only
-bm_plot <- lmer(Size ~ EggOrder + BEUTI + NPGO + (1 | Plot), data = SCMUdf2, REML = FALSE)
+bm_plot <- lmer(Size ~ EggOrder + ANCHL + BEUTI + SST + (1 | Plot), data = SCMUdf2, REML = FALSE)
 
 ## run model with obs RE only
-bm_obs <- lmer(Size ~ EggOrder + BEUTI + NPGO + (1 | Observer), data = SCMUdf2, REML = FALSE)
+bm_obs <- lmer(Size ~ EggOrder + ANCHL + BEUTI + SST + (1 | Observer), data = SCMUdf2, REML = FALSE)
 
 ## Exact RLRT test
 # m is the reduced model containing only the RE to be tested (the random effect set to zero under the null hypothesis). mA and Mo are the models under the alternative and the null, respectively. 
@@ -213,7 +222,7 @@ These diagnostics are done for the global model.
 ### Histogram of Predicted Values
 ```{r d1}
 ## extract predicted values and plot
-preds <- predict(topmod2)
+preds <- predict(bm_plot)
 ggplot() + 
   geom_histogram(mapping = aes(preds), bins = 20) + # set bins 
   theme_minimal()
@@ -223,7 +232,7 @@ Since we assumed our data are normal, we want to see an approximately normal dis
 ### Histogram of Residuals
 ```{r d2}
 ## extract residuals and plot
-resids <- residuals(topmod2)
+resids <- residuals(bm_plot)
 ggplot() + 
   geom_histogram(mapping = aes(resids), bins = 20) + 
   theme_minimal()
@@ -233,8 +242,8 @@ Since we assumed our data are normal, we want to see an approximately normal dis
 ### Model Coefficients
 ```{r d3}
 ## extract coeffs and random effects
-coef(topmod2) # this include fixed and random effects
-ranef_pl <- ranef(topmod2)$Plot # plot random effect only
+coef(bm_plot) # this include fixed and random effects
+ranef_pl <- ranef(bm_plot)$Plot # plot random effect only
 
 ## look at data going into random effects
 table(SCMUdf$Plot)
@@ -256,7 +265,7 @@ We want our points to fall approximately on the diagonal lines.
 ### Fitted v Residuals
 ```{r d5}
 ## plot residuals versus fitted values
-yh <- fitted(topmod2)
+yh <- fitted(bm_plot)
 plot(yh, resids, las = 1, pch = 16,
      xlab = "Fitted", ylab = "Residuals",
      main = "Residuals vs fitted")
@@ -296,7 +305,7 @@ https://qerm514.github.io/website/homework/week_03/hw_03_diagnostics_key.pdf
 Calculate the studentized residuals to look for outliers
 ```{r outliers}
 ## get studentized residuals
-(stud_e <- rstudent(topmod))
+(stud_e <- rstudent(bm_plot))
 
 ## get sample size
 n <- nrow(SCMUdf)

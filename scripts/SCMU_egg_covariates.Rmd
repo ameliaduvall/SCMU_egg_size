@@ -36,22 +36,37 @@ Historical data here: https://www.ndbc.noaa.gov/station_history.php?station=4602
 Data descriptions here: https://www.ndbc.noaa.gov/measdes.shtml  
 Data pulled from: https://www.integratedecosystemassessment.noaa.gov/regions/california-current/cc-indicator-status-trends
 
-For SST, we pulled data from the entire year (12 months) with no lag. 
 ```{r sst}
 SSTraw <- read_csv(here("data", "covariates", "cciea_OC_SST3_91cf_d165_213f-46025.csv"))
 
-## Averaged SST by year over 12 months and scaled (no lag)
+## Scenario 1: "half" dataset from Jan-June in time t
 SST <- SSTraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
   mutate(Year = year(time),
          Month = month(time)) %>%
   mutate(sst = as.numeric(SST)) %>%
+  filter(Month == 1 | Month == 2 | Month == 3 |Month == 4 | Month == 5 | Month == 6) %>%
   group_by(Year) %>%
   summarise(SST = mean(sst, na.rm = TRUE)) %>%
+  dplyr::select(Year, SST) %>%
   filter(Year >= 2009 & Year <= 2017) %>%
-  mutate(SST = scale(SST)) %>% 
-  arrange(Year) 
+  mutate(SST = scale(SST)) %>%
+  arrange(Year) %>%
+  dplyr::select(Year, SST)
+
+# ## Averaged SST by year over 12 months and scaled (no lag)
+# SST <- SSTraw %>%
+#   slice(-1) %>%
+#   mutate(time = ymd_hms(time)) %>%
+#   mutate(Year = year(time),
+#          Month = month(time)) %>%
+#   mutate(sst = as.numeric(SST)) %>%
+#   group_by(Year) %>%
+#   summarise(SST = mean(sst, na.rm = TRUE)) %>%
+#   filter(Year >= 2009 & Year <= 2017) %>%
+#   mutate(SST = scale(SST)) %>% 
+#   arrange(Year) 
 
 # ## for January-June only
 # SST <- SSTraw %>%
@@ -166,7 +181,6 @@ For ANCHL, there is only a yearling sampling rate. There was no support for lagg
 ```{r anchovyl}
 ANCHLraw  <- read.csv(here("data", "covariates", "cciea_EI_FBS_2020_a29e_1fd0_409d.csv"), na.strings = "NaN")
 
-## Data by year (no average) and scaled (no lag)
 ANCHL <- ANCHLraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
@@ -174,8 +188,9 @@ ANCHL <- ANCHLraw %>%
   mutate(ANCHL = as.numeric(relative_abundance)) %>%
   dplyr::select(Year, ANCHL) %>%
   filter(Year >= 2009 & Year <= 2017) %>%
-  mutate(ANCHL = scale(ANCHL)) %>% 
-  arrange(Year) 
+  mutate(ANCHL = scale(ANCHL)) %>%
+  arrange(Year)
+
 ```
 
 ### Krill - CCC (1990-2019)
@@ -203,26 +218,43 @@ Summary: UW/JISAO (http://research.jisao.washington.edu/pdo/PDO.latest.txt) The 
 Institution: University of Washington, Joint Institute for the Study of the Atmosphere and Ocean (JISAO)\
 Time span: 1900-01-01T00:00:00Z - 2020-04-01T00:00:00Z\
 
-For PDO, we used data from the entire year (12 months) with a one-year lag.
 ```{r PDO}
 PDOraw <- read_csv(here("data", "covariates", "cciea_OC_PDO_712b_5843_9069.csv"))
 
-## Averaged PDO by year across 12 months with a one year lag and scaled
+## Scenario 3: "half_lag" dataset from Jan-June in time t-1
 PDO <- PDOraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
   mutate(Year = year(time),
          Month = month(time)) %>%
   mutate(pdo = as.numeric(PDO)) %>%
+  filter(Month == 1 | Month == 2 | Month == 3 |Month == 4 | Month == 5 | Month == 6) %>%
+  mutate(Year = Year + 1) %>%
   group_by(Year) %>%
   summarise(PDO = mean(pdo, na.rm = TRUE)) %>%
   dplyr::select(Year, PDO) %>%
-  filter(Year >= 2008 & Year <= 2016) %>%
-  mutate(PDO = scale(PDO),
-         TrueYear = Year,
-         Year = TrueYear + 1) %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  mutate(PDO = scale(PDO)) %>%
   arrange(Year) %>%
   dplyr::select(Year, PDO)
+
+
+## Averaged PDO by year across 12 months with a one year lag and scaled
+# PDO <- PDOraw %>%
+#   slice(-1) %>%
+#   mutate(time = ymd_hms(time)) %>%
+#   mutate(Year = year(time),
+#          Month = month(time)) %>%
+#   mutate(pdo = as.numeric(PDO)) %>%
+#   group_by(Year) %>%
+#   summarise(PDO = mean(pdo, na.rm = TRUE)) %>%
+#   dplyr::select(Year, PDO) %>%
+#   filter(Year >= 2008 & Year <= 2016) %>%
+#   mutate(PDO = scale(PDO),
+#          TrueYear = Year,
+#          Year = TrueYear + 1) %>%
+#   arrange(Year) %>%
+#   dplyr::select(Year, PDO)
 
 # PDO_full <- PDOraw %>%
 #   slice(-1) %>%
@@ -261,12 +293,15 @@ For ONI, we used data from the entire year (12 months) with no lag.
 ```{r ONI}
 ONIraw <- read_csv(here("data", "covariates", "cciea_OC_ONI_712b_5843_9069.csv"))
 
-## Averaged ONI by year across 12 months and scaled (no lag)
+## Scenario 3: "half_lag" dataset from Jan-June in time t-1
 ONI <- ONIraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
-  mutate(Year = year(time)) %>%
+  mutate(Year = year(time),
+         Month = month(time)) %>%
   mutate(oni = as.numeric(ONI)) %>%
+  filter(Month == 1 | Month == 2 | Month == 3 |Month == 4 | Month == 5 | Month == 6) %>%
+  mutate(Year = Year + 1) %>%
   group_by(Year) %>%
   summarise(ONI = mean(oni, na.rm = TRUE)) %>%
   dplyr::select(Year, ONI) %>%
@@ -274,6 +309,21 @@ ONI <- ONIraw %>%
   mutate(ONI = scale(ONI)) %>%
   arrange(Year) %>%
   dplyr::select(Year, ONI)
+
+
+## Averaged ONI by year across 12 months and scaled (no lag)
+# ONI <- ONIraw %>%
+#   slice(-1) %>%
+#   mutate(time = ymd_hms(time)) %>%
+#   mutate(Year = year(time)) %>%
+#   mutate(oni = as.numeric(ONI)) %>%
+#   group_by(Year) %>%
+#   summarise(ONI = mean(oni, na.rm = TRUE)) %>%
+#   dplyr::select(Year, ONI) %>%
+#   filter(Year >= 2009 & Year <= 2017) %>%
+#   mutate(ONI = scale(ONI)) %>%
+#   arrange(Year) %>%
+#   dplyr::select(Year, ONI)
 
 # ## for January-June only
 # ONI <- ONIraw %>%
@@ -298,16 +348,17 @@ Time span: 1950-01-01T00:00:00Z - 2019-07-01T00:00:00Z\
 This article also explains NPGO well: http://www.o3d.org/npgo/
 See also this paper: https://agupubs.onlinelibrary.wiley.com/doi/pdf/10.1029/2011GL049966
 
-For NPGO, we used data from the entire year (12 month) with no lag.
 ```{r NPGO}
 NPGOraw <- read_csv(here("data", "covariates", "cciea_OC_NPGO_712b_5843_9069.csv"))
 
-## Average NPGO by year over 12 months and scaled (no lag)
+## Scenario 1: "half" dataset from Jan-June in time t
 NPGO <- NPGOraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
-  mutate(Year = year(time)) %>%
+  mutate(Year = year(time),
+         Month = month(time)) %>%
   mutate(npgo = as.numeric(NPGO)) %>%
+  filter(Month == 1 | Month == 2 | Month == 3 |Month == 4 | Month == 5 | Month == 6) %>%
   group_by(Year) %>%
   summarise(NPGO = mean(npgo, na.rm = TRUE)) %>%
   dplyr::select(Year, NPGO) %>%
@@ -315,6 +366,21 @@ NPGO <- NPGOraw %>%
   mutate(NPGO = scale(NPGO)) %>%
   arrange(Year) %>%
   dplyr::select(Year, NPGO)
+
+
+## Average NPGO by year over 12 months and scaled (no lag)
+# NPGO <- NPGOraw %>%
+#   slice(-1) %>%
+#   mutate(time = ymd_hms(time)) %>%
+#   mutate(Year = year(time)) %>%
+#   mutate(npgo = as.numeric(NPGO)) %>%
+#   group_by(Year) %>%
+#   summarise(NPGO = mean(npgo, na.rm = TRUE)) %>%
+#   dplyr::select(Year, NPGO) %>%
+#   filter(Year >= 2009 & Year <= 2017) %>%
+#   mutate(NPGO = scale(NPGO)) %>%
+#   arrange(Year) %>%
+#   dplyr::select(Year, NPGO)
 
 # NPGO_full <- NPGOraw %>%
 #   slice(-1) %>%
@@ -398,25 +464,43 @@ Time span: 1988-01-01T00:00:00Z - 2020-04-01T00:00:00Z
 
 Note: Check Latitude (39)
 
-For BEUTI, we used data from the entire year (12 months) with a one-year lag.
 ```{r BEUTI}
 BEUTIraw <- read_csv(here("data", "covariates", "cciea_OC_BEUTI_784c_ef9f_af6f.csv"))
 
-## Averaged by year across 12 months with a one year lag and scaled
+## Scenario 4: "full_lag" dataset from July in time t-2 to June in time t-1
 BEUTI <- BEUTIraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
-  mutate(Year = year(time)) %>%
-  mutate(beuti = as.numeric(beuti)) %>%
+  mutate(Year = year(time),
+         Month = month(time)) %>%
+  mutate(beuti = as.numeric(beuti),
+         split_year = ifelse(Month == 7 | Month == 8 | Month == 9 | Month == 10 | Month == 11 | Month == 12,
+                             Year + 1, Year)) %>%
+  rename(Year = split_year, true_year = Year) %>%
+  mutate(Year = Year + 1) %>%
   group_by(Year) %>%
   summarise(BEUTI = mean(beuti, na.rm = TRUE)) %>%
   dplyr::select(Year, BEUTI) %>%
-  filter(Year >= 2008 & Year <= 2016) %>%
-  mutate(BEUTI = scale(BEUTI),
-         TrueYear = Year,
-         Year = TrueYear + 1) %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  mutate(BEUTI = scale(BEUTI)) %>%
   arrange(Year) %>%
   dplyr::select(Year, BEUTI)
+
+## Averaged by year across 12 months with a one year lag and scaled
+# BEUTI <- BEUTIraw %>%
+#   slice(-1) %>%
+#   mutate(time = ymd_hms(time)) %>%
+#   mutate(Year = year(time)) %>%
+#   mutate(beuti = as.numeric(beuti)) %>%
+#   group_by(Year) %>%
+#   summarise(BEUTI = mean(beuti, na.rm = TRUE)) %>%
+#   dplyr::select(Year, BEUTI) %>%
+#   filter(Year >= 2008 & Year <= 2016) %>%
+#   mutate(BEUTI = scale(BEUTI),
+#          TrueYear = Year,
+#          Year = TrueYear + 1) %>%
+#   arrange(Year) %>%
+#   dplyr::select(Year, BEUTI)
 
 # BEUTI_full <- BEUTIraw %>%
 #   slice(-1) %>%
@@ -514,14 +598,14 @@ We selected +/- 0.65 as our cutoff for correlation. The following covariates sho
 <!-- 6. NPGO and SST -->
 <!-- 7. NPGO and PDO -->
 
-1. ANCHL and NPGO (-0.67)
-2. ANCHL and PDO (0.70)
-3. ANCHL and SST (0.70)
-4. BEUTI and PDO (-0.73)
-5. NPGO and ONI (-0.68)
-6. NPGO and PDO (-0.76)
-7. NPGO and SST (-0.87)
-8. PDO and SST (0.65)
+1. ANCHL and NPGO (-0.68)
+2. ANCHL and ONI (0.66)
+3. ANCHL and PDO (0.72)
+4. BEUTI and ONI (-0.90)
+5. BEUTI and PDO (-0.85)
+6. NPGO and PDO (-0.67)
+7. NPGO and SST (-0.85)
+8. ONI and PDO (0.90)
 
 # Number of Candidate Models
 
@@ -537,19 +621,20 @@ full_set <- expand.grid(predictors) # 64 combinations
 
 ## select models with correlated predictors
 ii <- which(full_set$ANCHL + full_set$NPGO == 2 |
+              full_set$ANCHL + full_set$ONI == 2 |
               full_set$ANCHL + full_set$PDO == 2 |
-              full_set$ANCHL + full_set$SST == 2 |
+              full_set$BEUTI + full_set$ONI == 2 |
               full_set$BEUTI + full_set$PDO == 2 |
-              full_set$NPGO + full_set$ONI == 2 |
               full_set$NPGO + full_set$PDO == 2 |
               full_set$NPGO + full_set$SST == 2 |
-              full_set$PDO + full_set$SST == 2) # 48 models
+              full_set$ONI + full_set$PDO == 2) # 49 models
 
 ## create reduced set of models and convert to a matrix for easier indexing
-use_set <- as.matrix(full_set[-ii,]) # 16 models
+use_set <- as.matrix(full_set[-ii,]) # 15 models
 
 ## number of models in set
-(n_mods <- nrow(use_set)) # 16 models out of potential 64
+(n_mods <- nrow(use_set)) # 15 models out of potential 64
+
 ```
 
 # Final Covariates Plot
@@ -580,5 +665,5 @@ ggplot(data = covarsplot, aes(x = year, y = value, color = covariate)) +
 finalcovars <- covars %>%
   mutate(Year = 2009:2017) %>%
   select(Year, everything())
-# write.csv(x = finalcovars, file = here("data", "covariates", "covars.csv")) 
+#write.csv(x = finalcovars, file = here("data", "covariates", "covars.csv")) 
 ```
