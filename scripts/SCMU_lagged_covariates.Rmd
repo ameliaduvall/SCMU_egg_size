@@ -57,23 +57,26 @@ ANCHLraw  <- read.csv(here("data", "covariates", "cciea_EI_FBS_2020_a29e_1fd0_40
 ## are there NAs in the data?
 sum(is.na(ANCHLraw$relative_abundance))
 
-## clean data 
-ANCHL <- ANCHLraw %>%
+## create dataset from 2009-2017 for values in year t 
+ANCHL_full <- ANCHLraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
   mutate(Year = year(time)) %>%
   mutate(ANCHL = as.numeric(relative_abundance)) %>%
   arrange(Year) %>%
-  dplyr::select(Year, ANCHL) 
-
-## create dataset from 2009-2017 for values in year t 
-ANCHL_full <- ANCHL %>%
+  dplyr::select(Year, ANCHL) %>%
   filter(Year >= 2009 & Year <= 2017) %>%
   mutate(ANCHL_full = scale(ANCHL)) %>%
   dplyr::select(Year, ANCHL_full)
 
 ## create dataset from 2008-2016 for values in year t-1 
-ANCHL_full_lag <- ANCHL %>%
+ANCHL_full_lag <- ANCHLraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time)) %>%
+  mutate(ANCHL = as.numeric(relative_abundance)) %>%
+  arrange(Year) %>%
+  dplyr::select(Year, ANCHL) %>%
   filter(Year >= 2008 & Year <= 2016) %>%
   mutate(TrueYear = Year,
          Year = TrueYear + 1,
@@ -90,15 +93,15 @@ ANCHLdf1 <- left_join(egg, ANCHL1, by = "Year")
 ANCHL_full_mod <- lmer(Size ~ ANCHL_full + (1 | Plot), data = ANCHLdf1) 
 ANCHL_full_lag_mod <- lmer(Size ~ ANCHL_full_lag + (1 | Plot), data = ANCHLdf1)
 
-## compare AIC
-ANCHL_full_AIC <- AIC(ANCHL_full_mod)
-ANCHL_full_lag_AIC <- AIC(ANCHL_full_lag_mod)
-
-## True or False, is the ANCHL no lag model AIC smaller than the ANCHL lag AIC?
-ANCHL_full_AIC < ANCHL_full_lag_AIC
-
-## What is the delta AIC?
-ANCHL_full_lag_AIC - ANCHL_full_AIC
+## Model selection table
+ANHCL_AIC <- matrix(NA, nrow = 2, ncol = 3) 
+ANHCL_AIC[1,1] <- AIC(ANCHL_full_mod) 
+ANHCL_AIC[2,1] <- AIC(ANCHL_full_lag_mod) 
+ANHCL_AIC[,2] <- ANHCL_AIC[,1] - min(ANHCL_AIC[,1]) # calculate delta AIC
+ANHCL_AIC[,3] <- exp(-0.5*ANHCL_AIC[,2])/(sum(exp(-0.5*ANHCL_AIC[,2]))) # calculate model weights
+colnames(ANHCL_AIC) <- c("AIC", "deltaAIC", "model_weights")
+rownames(ANHCL_AIC) <- c("full", "full_lag")
+print(ANHCL_AIC)
 ```
 There is support to use the ANCHL data in year $t$ since the lagged data is delta AIC > 2. 
 
@@ -206,10 +209,8 @@ rownames(BEUTI_AIC) <- c("half", "full", "half_lag", "full_lag")
 print(BEUTI_AIC)
 ```
 The BEUTI full_lag model has more support. 
-<!-- updated code up to here! -->
 
 ## SST
-First, we tested against using data from the entire year versus from January-June. 
 ```{r SST}
 SSTraw <- read_csv(here("data", "covariates", "cciea_OC_SST3_91cf_d165_213f-46025.csv"))
 
@@ -417,13 +418,11 @@ NPGO_AIC[,3] <- exp(-0.5*NPGO_AIC[,2])/(sum(exp(-0.5*NPGO_AIC[,2]))) # calculate
 colnames(NPGO_AIC) <- c("AIC", "deltaAIC", "model_weights")
 rownames(NPGO_AIC) <- c("half", "full", "half_lag", "full_lag")
 print(NPGO_AIC)
-
 ```
 The half NPGO model has the most support. 
 
 
 ## PDO
-
 ```{r PDO}
 PDOraw <- read_csv(here("data", "covariates", "cciea_OC_PDO_712b_5843_9069.csv"))
 
@@ -530,7 +529,6 @@ The PDO half_lag has more support.
 
 
 ## ONI
-First, we tested against using data from the entire year versus from January-June. 
 ```{r ONI1}
 ONIraw <- read_csv(here("data", "covariates", "cciea_OC_ONI_712b_5843_9069.csv"))
 
@@ -633,5 +631,5 @@ colnames(ONI_AIC) <- c("AIC", "deltaAIC", "model_weights")
 rownames(ONI_AIC) <- c("half", "full", "half_lag", "full_lag")
 print(ONI_AIC)
 ```
-There is equal support for the PDO half_lag (AIC = 10704.14) and full_lag model (AIC = 10705.02).
+There is equal support for the ONI half_lag (AIC = 10704.14) and full_lag model (AIC = 10705.02).
 
