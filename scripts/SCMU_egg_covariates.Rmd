@@ -190,7 +190,6 @@ ANCHL <- ANCHLraw %>%
   filter(Year >= 2009 & Year <= 2017) %>%
   mutate(ANCHL = scale(ANCHL)) %>%
   arrange(Year)
-
 ```
 
 ### Krill - CCC (1990-2019)
@@ -237,7 +236,6 @@ PDO <- PDOraw %>%
   mutate(PDO = scale(PDO)) %>%
   arrange(Year) %>%
   dplyr::select(Year, PDO)
-
 
 ## Averaged PDO by year across 12 months with a one year lag and scaled
 # PDO <- PDOraw %>%
@@ -289,7 +287,6 @@ Summary: NOAA/CPC (http://origin.cpc.ncep.noaa.gov/products/analysis_monitoring/
 Institution: NOAA, Climate Prediction Center (CPC)\
 Time span: 1950-01-01T00:00:00Z - 2020-03-01T00:00:00Z\
 
-For ONI, we used data from the entire year (12 months) with no lag. 
 ```{r ONI}
 ONIraw <- read_csv(here("data", "covariates", "cciea_OC_ONI_712b_5843_9069.csv"))
 
@@ -309,7 +306,6 @@ ONI <- ONIraw %>%
   mutate(ONI = scale(ONI)) %>%
   arrange(Year) %>%
   dplyr::select(Year, ONI)
-
 
 ## Averaged ONI by year across 12 months and scaled (no lag)
 # ONI <- ONIraw %>%
@@ -366,7 +362,6 @@ NPGO <- NPGOraw %>%
   mutate(NPGO = scale(NPGO)) %>%
   arrange(Year) %>%
   dplyr::select(Year, NPGO)
-
 
 ## Average NPGO by year over 12 months and scaled (no lag)
 # NPGO <- NPGOraw %>%
@@ -583,21 +578,6 @@ corrplot(cor$r)
 Positive correlations are displayed in blue and negative correlations in red color. Color intensity and the size of the circle are proportional to the correlation coefficients.  
 
 We selected +/- 0.65 as our cutoff for correlation. The following covariates should not be in the same model:
-<!-- 1. ANCHL and NPGO -->
-<!-- 2. BEUTI and PDO -->
-<!-- 3. NPGO and SST -->
-<!-- 4. ONI and PDO -->
-<!-- 5. ONI and SST -->
-<!-- 6. PDO and SST -->
-
-<!-- 1. ANCHL and PDO -->
-<!-- 2. ANCHL and SST -->
-<!-- 3. ANCHL and NPGO -->
-<!-- 4. BEUTI and PDO -->
-<!-- 5. NPGO and ONI -->
-<!-- 6. NPGO and SST -->
-<!-- 7. NPGO and PDO -->
-
 1. ANCHL and NPGO (-0.68)
 2. ANCHL and ONI (0.66)
 3. ANCHL and PDO (0.72)
@@ -634,7 +614,6 @@ use_set <- as.matrix(full_set[-ii,]) # 15 models
 
 ## number of models in set
 (n_mods <- nrow(use_set)) # 15 models out of potential 64
-
 ```
 
 # Final Covariates Plot
@@ -665,5 +644,5 @@ ggplot(data = covarsplot, aes(x = year, y = value, color = covariate)) +
 finalcovars <- covars %>%
   mutate(Year = 2009:2017) %>%
   select(Year, everything())
-#write.csv(x = finalcovars, file = here("data", "covariates", "covars.csv")) 
+# write.csv(x = finalcovars, file = here("data", "covariates", "covars.csv")) 
 ```

@@ -82,8 +82,7 @@ plot(yh, resids, las = 1, pch = 16,
 abline(h=0, lty = "dashed")
 ```
 
-# Fit Candidate Models
-Based on the LRTs, we only included Plot as a random effect (see below). 
+# Remove Correlated Predictos & Find Global Model
 ```{r mods}
 ## create data frame specifying predictors to include
 predictors <- as.data.frame(matrix(c(FALSE, TRUE), 2, 7)) # 7 potential predictors (includes EggOrder)
@@ -110,17 +109,162 @@ use_set <- as.matrix(full_set[-ii,])
 ## number of models in set
 (n_mods <- nrow(use_set)) # 30 models out of potential 128
 
+## find max number of predictors in a model
+rowSums(use_set) # only one model with 4 predictors (72)
+
+## which predictors are included in this model?
+cov_names[use_set[26,]] # "EggOrder" "ANCHL"    "BEUTI"    "SST"  
 ```
 
-## Find global model
+# Likelihood Ratio Tests
+We used LRTs using the global model to test the support for inclusion of random effects (Plot, Observer). There are NAs in the observer data from 2015. These NAs need to be removed prior to completing LRT tests. See https://cran.r-project.org/web/packages/RLRsim/RLRsim.pdf for info.
+```{r likelihoodratio}
+SCMUdf2 <- SCMUdf[-c(which(is.na(SCMUdf$Observer==TRUE))),]
+
+## global model
+bm_both <- lmer(Size ~ EggOrder + ANCHL + BEUTI + SST + (1 | Observer) + (1 | Plot), data = SCMUdf2, REML = FALSE)
+
+## run model with plot RE only
+bm_plot <- lmer(Size ~ EggOrder + ANCHL + BEUTI + SST + (1 | Plot), data = SCMUdf2, REML = FALSE)
+
+## run model with obs RE only
+bm_obs <- lmer(Size ~ EggOrder + ANCHL + BEUTI + SST + (1 | Observer), data = SCMUdf2, REML = FALSE)
+
+## Exact RLRT test
+# m is the reduced model containing only the RE to be tested (the random effect set to zero under the null hypothesis). mA and Mo are the models under the alternative and the null, respectively. 
+
+# observer set to zero under the null hypothesis
+exactRLRT(m = bm_obs, mA = bm_both, m0 = bm_plot, seed = 16)
+
+# plot set to zero under the null hypothesis 
+exactRLRT(m = bm_plot, mA = bm_both, m0 = bm_obs, seed = 16)
+```
+
+# Model Diagnostics
+These diagnostics are done for the global model. 
 ```{r global}
-
-rowSums(use_set)
-#cov_names[use_set[72,]]
-
-
-
+## run global model
+global_mod <- lmer(Size ~ EggOrder + ANCHL + BEUTI + SST + (1 | Plot), data = SCMUdf, REML = TRUE)
 ```
+
+## Residuals/Fitted Plots
+
+### Histogram of Predicted Values
+```{r d1}
+## extract predicted values and plot
+preds <- predict(global_mod)
+ggplot() + 
+  geom_histogram(mapping = aes(preds), bins = 20) + # set bins 
+  theme_minimal()
+```
+Since we assumed our data are normal, we want to see an approximately normal distribution of predicted values.
+
+### Histogram of Residuals
+```{r d2}
+## extract residuals and plot
+resids <- residuals(global_mod)
+ggplot() + 
+  geom_histogram(mapping = aes(resids), bins = 20) + 
+  theme_minimal()
+```
+Since we assumed our data are normal, we want to see an approximately normal distribution of residuals (differences between observed and predicted values of data).
+
+### Model Coefficients
+```{r d3}
+## extract coeffs and random effects
+coef(global_mod) # this include fixed and random effects
+ranef_pl <- ranef(global_mod)$Plot # plot random effect only
+
+## look at data going into random effects
+table(SCMUdf$Plot)
+```
+We can extract our model coefficients (for fixed and random effects) and look at them. 
+
+### Q-Q Plots
+```{r d4}
+# qq resids
+qqnorm(resids, main = "QQ plot (residuals)", las = 1, pch = 16)
+qqline(resids)
+
+# qq Plot RE
+qqnorm(unlist(ranef_pl), main = "QQ plot (Plot RE)", las = 1, pch = 16)
+qqline(unlist(ranef_pl))
+```
+We want our points to fall approximately on the diagonal lines. 
+
+### Fitted v Residuals
+```{r d5}
+## plot residuals versus fitted values
+yh <- fitted(global_mod)
+plot(yh, resids, las = 1, pch = 16,
+     xlab = "Fitted", ylab = "Residuals",
+     main = "Residuals vs fitted")
+abline(h=0, lty = "dashed")
+```
+We assume our errors are normally distributed with constant variance. We want this plot to look like a scattershot of points, without any evidence of trends. 
+
+## Levene's test
+We can formally test the assumption of homogenous variance via the Levene's Test, which compares the absolute values of the residuals among groups. 
+```{r lev}
+## split residuals into 2 groups
+g1 <- resids[yh <= median(yh)]
+g2 <- resids[yh > median(yh)]
+
+## Levene's test
+var.test(g1, g2)
+```
+There is no justification to reject the null hypothesis that the residuals are equal. F is close to 1 and it is within the 95% confidence interval. 
+
+## Autocorrelation
+We also assume our errors are independent (e.g., not correlated). An ACF plot can be used to look for autocorrelation. 
+```{r acf}
+# calculate the ACF for lags between 1 and 10 
+autocorrelation <- acf(resids, lag.max= 10, plot = FALSE)
+
+# Plot figure
+plot(autocorrelation,
+     main="Autocorrelation",
+     xlab="Lag Parameter",
+     ylab="ACF")
+```
+The first value with 0 lag will always be autocorrelated because it's stacked on itself. But after that, we want to see the values within the blue dotted lines. There does not appear to be autocorrelation in the residuals. 
+
+# Identifying Outliers
+https://qerm514.github.io/website/labs/week_03/diagnostics_and_errors.html#unusual_observations
+https://qerm514.github.io/website/homework/week_03/hw_03_diagnostics_key.pdf
+Calculate the studentized residuals to look for outliers
+```{r outliers}
+## get studentized residuals
+(stud_e <- rstudent(global_mod))
+
+## get sample size
+n <- nrow(SCMUdf)
+
+## Bonferroni correction: alpha/n
+alpha <- 0.05/n
+
+## critical t value
+degf <- n - length(coef(global_mod))-1 # should be more due to REs?
+t_crit <- qt(1 - alpha/2, degf)
+
+## compare t_stud to t_crit
+sum(stud_e > t_crit, na.rm = TRUE)
+```
+
+## Cook's Distance
+```{r cook}
+## Cook's D
+cook <- cooks.distance(global_mod)
+
+# Plot the Cook's Distance using the traditional 4/n criterion
+sample_size <- nrow(SCMUdf)
+plot(cook, pch="*", cex=2, main="Influential Obs by Cooks distance")  # plot cook's distance
+abline(h = 4/sample_size, col="red")  # add cutoff line
+text(x=1:length(cook)+1, y=cook, labels=ifelse(cook>4/sample_size, names(cook),""), col="red")  # add labels
+```
+
+
+# Fit Candidate Models
 ```{r modsel}
 ## create empty matrix for storing results
 mod_res <- matrix(NA, n_mods, 1)
@@ -183,160 +327,17 @@ Here we look at the top competitive models.
 topmod1 <- lmer(Size ~ EggOrder + BEUTI + NPGO + (1 | Plot), data = SCMUdf, REML = TRUE)
 summary(topmod1)  
 ```
+
 ## Top Model 2
 ```{r topmod2}
-topmod2 <- lmer(Size ~ EggOrder + BEUTI + NPGO + ONI + (1 | Plot), data = SCMUdf, REML = TRUE)
+topmod2 <- lmer(Size ~ EggOrder + NPGO + ONI + (1 | Plot), data = SCMUdf, REML = TRUE)
 summary(topmod2)
-```
-
-# Likelihood Ratio Tests
-We used LRTs using the global model to test the support for inclusion of random effects (Plot, Observer). There are NAs in the observer data from 2015. These NAs need to be removed prior to completing LRT tests. See https://cran.r-project.org/web/packages/RLRsim/RLRsim.pdf for info.
-```{r likelihoodratio}
-SCMUdf2 <- SCMUdf[-c(which(is.na(SCMUdf$Observer==TRUE))),]
-
-## global model
-bm_both <- lmer(Size ~ EggOrder + ANCHL + BEUTI + SST + (1 | Observer) + (1 | Plot), data = SCMUdf2, REML = FALSE)
-
-## run model with plot RE only
-bm_plot <- lmer(Size ~ EggOrder + ANCHL + BEUTI + SST + (1 | Plot), data = SCMUdf2, REML = FALSE)
-
-## run model with obs RE only
-bm_obs <- lmer(Size ~ EggOrder + ANCHL + BEUTI + SST + (1 | Observer), data = SCMUdf2, REML = FALSE)
-
-## Exact RLRT test
-# m is the reduced model containing only the RE to be tested (the random effect set to zero under the null hypothesis). mA and Mo are the models under the alternative and the null, respectively. 
-
-# observer set to zero under the null hypothesis
-exactRLRT(m = bm_obs, mA = bm_both, m0 = bm_plot, seed = 16)
-
-# plot set to zero under the null hypothesis 
-exactRLRT(m = bm_plot, mA = bm_both, m0 = bm_obs, seed = 16)
-```
-Based on a strict alpha = 0.05, we would keep plot (p ~ 0.0198) but eliminate observer (p ~ 1).
-
-# Model Diagnostics
-These diagnostics are done for the global model. 
-
-## Residuals/Fitted Plots
-
-### Histogram of Predicted Values
-```{r d1}
-## extract predicted values and plot
-preds <- predict(bm_plot)
-ggplot() + 
-  geom_histogram(mapping = aes(preds), bins = 20) + # set bins 
-  theme_minimal()
-```
-Since we assumed our data are normal, we want to see an approximately normal distribution of predicted values.
-
-### Histogram of Residuals
-```{r d2}
-## extract residuals and plot
-resids <- residuals(bm_plot)
-ggplot() + 
-  geom_histogram(mapping = aes(resids), bins = 20) + 
-  theme_minimal()
-```
-Since we assumed our data are normal, we want to see an approximately normal distribution of residuals (differences between observed and predicted values of data).
-
-### Model Coefficients
-```{r d3}
-## extract coeffs and random effects
-coef(bm_plot) # this include fixed and random effects
-ranef_pl <- ranef(bm_plot)$Plot # plot random effect only
-
-## look at data going into random effects
-table(SCMUdf$Plot)
-```
-We can extract our model coefficients (for fixed and random effects) and look at them. 
-
-### Q-Q Plots
-```{r d4}
-# qq resids
-qqnorm(resids, main = "QQ plot (residuals)", las = 1, pch = 16)
-qqline(resids)
-
-# qq Plot RE
-qqnorm(unlist(ranef_pl), main = "QQ plot (Plot RE)", las = 1, pch = 16)
-qqline(unlist(ranef_pl))
-```
-We want our points to fall approximately on the diagonal lines. 
-
-### Fitted v Residuals
-```{r d5}
-## plot residuals versus fitted values
-yh <- fitted(bm_plot)
-plot(yh, resids, las = 1, pch = 16,
-     xlab = "Fitted", ylab = "Residuals",
-     main = "Residuals vs fitted")
-abline(h=0, lty = "dashed")
-```
-We assume our errors are normally distributed with constant variance. We want this plot to look like a scattershot of points, without any evidence of trends. 
-
-## Levene's test
-We can formally test the assumption of homogenous variance via the Levene's Test, which compares the absolute values of the residuals among groups. 
-```{r lev}
-## split residuals into 2 groups
-g1 <- resids[yh <= median(yh)]
-g2 <- resids[yh > median(yh)]
-
-## Levene's test
-var.test(g1, g2)
-```
-There is no justification to reject the null hypothesis that the residuals are equal. F is close to 1 and it is within the 95% confidence interval. 
-
-## Autocorrelation
-We also assume our errors are independent (e.g., not correlated). An ACF plot can be used to look for autocorrelation. 
-```{r acf}
-# calculate the ACF for lags between 1 and 10 
-autocorrelation <- acf(resids, lag.max= 10, plot = FALSE)
-
-# Plot figure
-plot(autocorrelation,
-     main="Autocorrelation",
-     xlab="Lag Parameter",
-     ylab="ACF")
-```
-The first value with 0 lag will always be autocorrelated because it's stacked on itself. But after that, we want to see the values within the blue dotted lines. There does not appear to be autocorrelation in the residuals. 
-
-# Identifying Outliers
-https://qerm514.github.io/website/labs/week_03/diagnostics_and_errors.html#unusual_observations
-https://qerm514.github.io/website/homework/week_03/hw_03_diagnostics_key.pdf
-Calculate the studentized residuals to look for outliers
-```{r outliers}
-## get studentized residuals
-(stud_e <- rstudent(bm_plot))
-
-## get sample size
-n <- nrow(SCMUdf)
-
-## Bonferroni correction: alpha/n
-alpha <- 0.05/n
-
-## critical t value
-degf <- n - length(coef(bm1))-1 # should be more due to REs?
-t_crit <- qt(1 - alpha/2, degf)
-
-## compare t_stud to t_crit
-sum(stud_e > t_crit, na.rm = TRUE)
-```
-
-## Cook's Distance
-```{r cook}
-## Cook's D
-cook <- cooks.distance(bm1)
-
-# Plot the Cook's Distance using the traditional 4/n criterion
-sample_size <- nrow(SCMUdf)
-plot(cook, pch="*", cex=2, main="Influential Obs by Cooks distance")  # plot cook's distance
-abline(h = 4/sample_size, col="red")  # add cutoff line
-text(x=1:length(cook)+1, y=cook, labels=ifelse(cook>4/sample_size, names(cook),""), col="red")  # add labels
 ```
 
 # Prediction
 ```{r predict}
 topmod1 <- lmer(Size ~ EggOrder + BEUTI + NPGO + (1 | Plot), data = SCMUdf, REML = TRUE)
-topmod2 <- lmer(Size ~ EggOrder + BEUTI + ONI + SST + (1 | Plot), data = SCMUdf, REML = TRUE)
+topmod2 <- lmer(Size ~ EggOrder + NPGO + ONI + (1 | Plot), data = SCMUdf, REML = TRUE)
 
 # AIC tab for 2 top models
 AIC.tab2 <- matrix(NA, nrow = 2, ncol = 3)
@@ -363,7 +364,6 @@ SCMU.null$SST <- mean(SCMUdf$SST)
 
 SCMU.null$Plot <- sample(SCMUdf$Plot,200,replace = TRUE)
 #SCMU.null$Observer <- sample(SCMUdf$Observer,200,replace = TRUE)
-
 ```
 
 ## BEUTI
@@ -523,38 +523,38 @@ lines(SCMU.ONI$ONI[1:100],y = apply(pv.ONI,2,function(x)quantile(x,probs= 0.975)
 
 ## SST
 ```{r predict SST}
-SCMU.SST <- SCMU.null
-SCMU.SST$SST <- rep(seq(from = min(SCMUdf$SST),to = max(SCMUdf$SST),length.out = 100),2)
-
-plot.sd.1 <- as.data.frame(VarCorr(topmod1))$sdcor[1]
-resid.sd.1 <- as.data.frame(VarCorr(topmod1))$sdcor[2]
-
-plot.sd.2 <- as.data.frame(VarCorr(topmod2))$sdcor[1]
-resid.sd.2 <- as.data.frame(VarCorr(topmod2))$sdcor[2]
-
-sims <- 10000
-
-pv.SST <- matrix(nrow = sims, ncol = nrow(SCMU.SST))
-for(i in 1:sims){
-  #choose a model 
-  model <- which(rmultinom(n = 1, size = 1,prob = c(AIC.tab2[,3]))==1)
-  if(model == 1){
-    #we simulate conditioning on no specific random effects levels
-    y <- unlist(simulate(topmod1))
-    bmod <- refit(topmod1,y)
-    pv.SST[i,] <- predict(bmod, re.form = ~0, newdata = SCMU.SST) + rnorm(1,0,sd=plot.sd.1) + rnorm(1,0,sd=resid.sd.1)
-  }
-  if(model == 2){
-    #we simulate conditioning on no specific random effects levels
-    y <- unlist(simulate(topmod2))
-    bmod <- refit(topmod2,y)
-    pv.SST[i,] <- predict(bmod, re.form = ~0, newdata = SCMU.SST) + rnorm(1,0,sd=plot.sd.2) + rnorm(1,0,sd=resid.sd.2)
-  }
-}  
-
-plot(SCMU.SST$SST[1:100],y = apply(pv.SST,2,mean)[1:100],xlab = "SST",ylab = "Egg Size",type = "l",ylim = c(1500,2500))
-lines(SCMU.SST$SST[1:100],y = apply(pv.SST,2,function(x)quantile(x,probs= 0.025))[1:100],lty=2)
-lines(SCMU.SST$SST[1:100],y = apply(pv.SST,2,function(x)quantile(x,probs= 0.975))[1:100],lty=2)
+# SCMU.SST <- SCMU.null
+# SCMU.SST$SST <- rep(seq(from = min(SCMUdf$SST),to = max(SCMUdf$SST),length.out = 100),2)
+# 
+# plot.sd.1 <- as.data.frame(VarCorr(topmod1))$sdcor[1]
+# resid.sd.1 <- as.data.frame(VarCorr(topmod1))$sdcor[2]
+# 
+# plot.sd.2 <- as.data.frame(VarCorr(topmod2))$sdcor[1]
+# resid.sd.2 <- as.data.frame(VarCorr(topmod2))$sdcor[2]
+# 
+# sims <- 10000
+# 
+# pv.SST <- matrix(nrow = sims, ncol = nrow(SCMU.SST))
+# for(i in 1:sims){
+#   #choose a model 
+#   model <- which(rmultinom(n = 1, size = 1,prob = c(AIC.tab2[,3]))==1)
+#   if(model == 1){
+#     #we simulate conditioning on no specific random effects levels
+#     y <- unlist(simulate(topmod1))
+#     bmod <- refit(topmod1,y)
+#     pv.SST[i,] <- predict(bmod, re.form = ~0, newdata = SCMU.SST) + rnorm(1,0,sd=plot.sd.1) + rnorm(1,0,sd=resid.sd.1)
+#   }
+#   if(model == 2){
+#     #we simulate conditioning on no specific random effects levels
+#     y <- unlist(simulate(topmod2))
+#     bmod <- refit(topmod2,y)
+#     pv.SST[i,] <- predict(bmod, re.form = ~0, newdata = SCMU.SST) + rnorm(1,0,sd=plot.sd.2) + rnorm(1,0,sd=resid.sd.2)
+#   }
+# }  
+# 
+# plot(SCMU.SST$SST[1:100],y = apply(pv.SST,2,mean)[1:100],xlab = "SST",ylab = "Egg Size",type = "l",ylim = c(1500,2500))
+# lines(SCMU.SST$SST[1:100],y = apply(pv.SST,2,function(x)quantile(x,probs= 0.025))[1:100],lty=2)
+# lines(SCMU.SST$SST[1:100],y = apply(pv.SST,2,function(x)quantile(x,probs= 0.975))[1:100],lty=2)
 ```
 
 ## Plots
@@ -571,8 +571,8 @@ plot(SCMU.ONI$ONI[1:100],y = apply(pv.ONI,2,mean)[1:100],xlab = "ONI",ylab = "Eg
 lines(SCMU.ONI$ONI[1:100],y = apply(pv.ONI,2,function(x)quantile(x,probs= 0.025))[1:100],lty=2)
 lines(SCMU.ONI$ONI[1:100],y = apply(pv.ONI,2,function(x)quantile(x,probs= 0.975))[1:100],lty=2)
   
-plot(SCMU.SST$SST[1:100],y = apply(pv.SST,2,mean)[1:100],xlab = "SST",ylab = "Egg Size",type = "l",ylim = c(1500,2500))
-lines(SCMU.SST$SST[1:100],y = apply(pv.SST,2,function(x)quantile(x,probs= 0.025))[1:100],lty=2)x
-lines(SCMU.SST$SST[1:100],y = apply(pv.SST,2,function(x)quantile(x,probs= 0.975))[1:100],lty=2)
+# plot(SCMU.SST$SST[1:100],y = apply(pv.SST,2,mean)[1:100],xlab = "SST",ylab = "Egg Size",type = "l",ylim = c(1500,2500))
+# lines(SCMU.SST$SST[1:100],y = apply(pv.SST,2,function(x)quantile(x,probs= 0.025))[1:100],lty=2)x
+# lines(SCMU.SST$SST[1:100],y = apply(pv.SST,2,function(x)quantile(x,probs= 0.975))[1:100],lty=2)
 ```
 
