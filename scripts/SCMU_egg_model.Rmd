@@ -19,6 +19,7 @@ library(lme4)
 library(faraway)
 library(sjPlot)
 library(RLRsim)
+library(forecast)
 ```
 
 This is `r paste0("v.", (Sys.Date()))`
@@ -222,10 +223,17 @@ We also assume our errors are independent (e.g., not correlated). An ACF plot ca
 autocorrelation <- acf(resids, lag.max= 10, plot = FALSE)
 
 # Plot figure
-plot(autocorrelation,
-     main="Autocorrelation",
-     xlab="Lag Parameter",
-     ylab="ACF")
+# plot(autocorrelation,
+#      main="Autocorrelation",
+#      xlab="Lag Parameter",
+#      ylab="ACF")
+
+## ggplot code
+ggAcf(x = resids, lag.max = 10) +
+  theme_minimal() +
+  ylim(c(-0.1,1)) +
+  ggtitle("Autocorrelation") +
+  theme(plot.title = element_text(hjust = 0.5))
 ```
 The first value with 0 lag will always be autocorrelated because it's stacked on itself. But after that, we want to see the values within the blue dotted lines. There does not appear to be autocorrelation in the residuals. 
 
@@ -335,7 +343,7 @@ summary(topmod2)
 ```
 
 # Prediction
-```{r predict}
+```{r predict, warning = FALSE}
 topmod1 <- lmer(Size ~ EggOrder + BEUTI + NPGO + (1 | Plot), data = SCMUdf, REML = TRUE)
 topmod2 <- lmer(Size ~ EggOrder + NPGO + ONI + (1 | Plot), data = SCMUdf, REML = TRUE)
 
@@ -367,7 +375,7 @@ SCMU.null$Plot <- sample(SCMUdf$Plot,200,replace = TRUE)
 ```
 
 ## BEUTI
-```{r predict BEUTI}
+```{r predict BEUTI, warning = FALSE}
 #then vary just one predictor at a time for prediction. For example, create the dataset SCMU. BEUTI that will be used for predictions where the only thing that values is BEUTI 
 SCMU.BEUTI <- SCMU.null
 SCMU.BEUTI$BEUTI <- rep(seq(from = min(SCMUdf$BEUTI),to = max(SCMUdf$BEUTI),length.out = 100),2)
@@ -447,7 +455,7 @@ lines(SCMU.BEUTI$BEUTI[1:100],y = apply(pv.BEUTI,2,function(x)quantile(x,probs= 
 ```
 
 ## NPGO
-```{r predict NPGO}
+```{r predict NPGO, warning = FALSE}
 SCMU.NPGO <- SCMU.null
 SCMU.NPGO$NPGO <- rep(seq(from = min(SCMUdf$NPGO),to = max(SCMUdf$NPGO),length.out = 100),2)
 
@@ -485,7 +493,7 @@ lines(SCMU.NPGO$NPGO[1:100],y = apply(pv.NPGO,2,function(x)quantile(x,probs= 0.9
 ```
 
 ## ONI
-```{r predict ONI}
+```{r predict ONI, warning = FALSE}
 SCMU.ONI <- SCMU.null
 SCMU.ONI$ONI <- rep(seq(from = min(SCMUdf$ONI),to = max(SCMUdf$ONI),length.out = 100),2)
 
@@ -522,7 +530,8 @@ lines(SCMU.ONI$ONI[1:100],y = apply(pv.ONI,2,function(x)quantile(x,probs= 0.975)
 ```
 
 ## SST
-```{r predict SST}
+SST is no longer in any of our top models. 
+```{r predict SST, warning = FALSE}
 # SCMU.SST <- SCMU.null
 # SCMU.SST$SST <- rep(seq(from = min(SCMUdf$SST),to = max(SCMUdf$SST),length.out = 100),2)
 # 
@@ -558,7 +567,7 @@ lines(SCMU.ONI$ONI[1:100],y = apply(pv.ONI,2,function(x)quantile(x,probs= 0.975)
 ```
 
 ## Plots
-```{r combine plots}
+```{r combine plots, warning = FALSE}
 plot(SCMU.BEUTI$BEUTI[1:100],y = apply(pv.BEUTI,2,mean)[1:100],xlab = "BEUTI",ylab = "Egg Size",type = "l",ylim = c(1500,2500))
 lines(SCMU.BEUTI$BEUTI[1:100],y = apply(pv.BEUTI,2,function(x)quantile(x,probs= 0.025))[1:100],lty=2)
 lines(SCMU.BEUTI$BEUTI[1:100],y = apply(pv.BEUTI,2,function(x)quantile(x,probs= 0.975))[1:100],lty=2)
