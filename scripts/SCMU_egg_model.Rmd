@@ -155,7 +155,7 @@ global_mod <- lmer(Size ~ EggOrder + ANCHL + BEUTI + SST + (1 | Plot), data = SC
 ## extract predicted values and plot
 preds <- predict(global_mod)
 ggplot() + 
-  geom_histogram(mapping = aes(preds), bins = 20) + # set bins 
+  geom_histogram(mapping = aes(preds), bins = 20) + labs(tags="A") + # set bins 
   theme_minimal()
 ```
 Since we assumed our data are normal, we want to see an approximately normal distribution of predicted values.
@@ -165,7 +165,7 @@ Since we assumed our data are normal, we want to see an approximately normal dis
 ## extract residuals and plot
 resids <- residuals(global_mod)
 ggplot() + 
-  geom_histogram(mapping = aes(resids), bins = 20) + 
+  geom_histogram(mapping = aes(resids), bins = 20) + labs(tags="B") +
   theme_minimal()
 ```
 Since we assumed our data are normal, we want to see an approximately normal distribution of residuals (differences between observed and predicted values of data).
@@ -189,6 +189,7 @@ qqline(resids)
 
 # qq Plot RE
 qqnorm(unlist(ranef_pl), main = "QQ plot (Plot RE)", las = 1, pch = 16)
+legend("topleft", "D", bty="n")
 qqline(unlist(ranef_pl))
 ```
 We want our points to fall approximately on the diagonal lines. 
