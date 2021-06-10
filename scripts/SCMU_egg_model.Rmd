@@ -189,7 +189,7 @@ qqline(resids)
 
 # qq Plot RE
 qqnorm(unlist(ranef_pl), main = "QQ plot (Plot RE)", las = 1, pch = 16)
-legend("topleft", "D", bty="n")
+#legend("topleft", "D", bty="n")
 qqline(unlist(ranef_pl))
 ```
 We want our points to fall approximately on the diagonal lines. 
