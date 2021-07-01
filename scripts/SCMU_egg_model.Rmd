@@ -15,19 +15,7 @@ library(janitor)
 library(ggplot2)
 library(lubridate)
 library(viridis)
-library(lme4)
-library(faraway)
-library(sjPlot)
-library(RLRsim)
-library(forecast)
-```
-
-This is `r paste0("v.", (Sys.Date()))`
-
-# Introduction
-This document details steps taken to model Scripps's Murrelet (*Synthliboramphus scrippsi*) egg size at Santa Barbara Island within Channel Islands National Park from 2009-2017.  
-
-# Load and format data 
+and format data 
 ```{r data}
 egg <- read.csv(here("data", "SCMU_egg_data.csv")) 
 covars <- read.csv(here("data", "covariates", "covars.csv"))
@@ -448,7 +436,7 @@ resid.sd.1 <- as.data.frame(VarCorr(topmod1))$sdcor[2]
 plot.sd.2 <- as.data.frame(VarCorr(topmod2))$sdcor[1]
 resid.sd.2 <- as.data.frame(VarCorr(topmod2))$sdcor[2]
 
-sims <- 10000
+sims <- 100
 
 # pv <- matrix(nrow = sims, ncol = nrow(SCMU.BEUTI))
 # for(i in 1:sims){
@@ -493,12 +481,44 @@ for(i in 1:sims){
   }
 }  
 
+library(lme4)
+library(faraway)
+library(sjPlot)
+library(RLRsim)
+library(forecast)
+```
 
+This is `r paste0("v.", (Sys.Date()))`
+
+# Introduction
+This document details steps taken to model Scripps's Murrelet (*Synthliboramphus scrippsi*) egg size at Santa Barbara Island within Channel Islands National Park from 2009-2017.  
+
+# Load 
 ##SJC added - you can do plots like this of the predictions and 95% CIs against the individual predictors 
 plot(SCMU.BEUTI$BEUTI[1:100],y = apply(pv.BEUTI,2,mean)[1:100],xlab = "BEUTI",ylab = "Egg Size",type = "l",ylim = c(1500,2500))
 lines(SCMU.BEUTI$BEUTI[1:100],y = apply(pv.BEUTI,2,function(x)quantile(x,probs= 0.025))[1:100],lty=2)
 lines(SCMU.BEUTI$BEUTI[1:100],y = apply(pv.BEUTI,2,function(x)quantile(x,probs= 0.975))[1:100],lty=2)
+
+#Updated plot - include both egg order 
+lines(SCMU.BEUTI$BEUTI[101:200],y = apply(pv.BEUTI,2,mean)[101:200],col="red")
+lines(SCMU.BEUTI$BEUTI[101:200],y = apply(pv.BEUTI,2,function(x)quantile(x,probs= 0.025))[101:200],lty=2,col = "red")
+lines(SCMU.BEUTI$BEUTI[101:200],y = apply(pv.BEUTI,2,function(x)quantile(x,probs= 0.975))[101:200],lty=2,col="red")
+
   
+```
+
+
+#Updated chunk for prediction - one model only 
+```{r}
+## Marcela tried updating
+pv.BEUTI <- matrix(nrow = sims, ncol = nrow(SCMU.BEUTI))
+for(i in 1:sims){
+    #we simulate conditioning on no specific random effects levels
+    y <- unlist(simulate(topmod1))
+    bmod <- refit(topmod1,y)
+    pv.BEUTI[i,] <- predict(bmod, re.form = ~0, newdata = SCMU.BEUTI) + rnorm(1,0,sd=plot.sd.1) + rnorm(1,0,sd=resid.sd.1)
+  }
+
 ```
 
 ## NPGO
