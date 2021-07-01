@@ -154,9 +154,13 @@ global_mod <- lmer(Size ~ EggOrder + ANCHL + BEUTI + SST + (1 | Plot), data = SC
 ```{r d1}
 ## extract predicted values and plot
 preds <- predict(global_mod)
-ggplot() + 
-  geom_histogram(mapping = aes(preds), bins = 20) + labs(tags="A") + # set bins 
-  theme_minimal()
+p1 <- ggplot() + 
+  geom_histogram(mapping = aes(preds), bins = 15) + # set bins 
+  theme_minimal() +
+  xlab("Predicted Egg Size") + ylab("Count") +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
+p1
 ```
 Since we assumed our data are normal, we want to see an approximately normal distribution of predicted values.
 
@@ -164,9 +168,13 @@ Since we assumed our data are normal, we want to see an approximately normal dis
 ```{r d2}
 ## extract residuals and plot
 resids <- residuals(global_mod)
-ggplot() + 
-  geom_histogram(mapping = aes(resids), bins = 20) + labs(tags="B") +
-  theme_minimal()
+p2 <- ggplot() + 
+  geom_histogram(mapping = aes(resids), bins = 15) +
+  theme_minimal() +
+  xlab("Residuals") + ylab("Count") +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
+p2
 ```
 Since we assumed our data are normal, we want to see an approximately normal distribution of residuals (differences between observed and predicted values of data).
 
@@ -187,12 +195,50 @@ We can extract our model coefficients (for fixed and random effects) and look at
 qqnorm(resids, main = "QQ plot (residuals)", las = 1, pch = 16)
 qqline(resids)
 
+## try ggplot code
+qqresids <- as.data.frame(resids)
+p3 <- ggplot(qqresids, aes(sample = resids)) + 
+  geom_qq() + geom_qq_line() +
+  theme_minimal() +
+  xlab("Theoretical Quantiles") + ylab("Sample Quantiles") +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(hjust = 0.5)) +
+  ggtitle("QQ Plot (Residuals)")
+p3
+
 # qq Plot RE
 qqnorm(unlist(ranef_pl), main = "QQ plot (Plot RE)", las = 1, pch = 16)
+<<<<<<< HEAD
 #legend("topleft", "D", bty="n")
+=======
+# legend("topleft", "D", bty="n")
+>>>>>>> 7199e346602b8f5f278f237e7206fc990289bc57
 qqline(unlist(ranef_pl))
+
+## try ggplot code
+plotRE <- as.data.frame(unlist(ranef_pl))
+p4 <- ggplot(plotRE, aes(sample = unlist(ranef_pl))) + 
+  geom_qq() + geom_qq_line() +
+  theme_minimal() +
+  xlab("Theoretical Quantiles") + ylab("Sample Quantiles") +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(hjust = 0.5)) +
+  ggtitle("QQ Plot (Plot Random Effect)")
+p4
 ```
 We want our points to fall approximately on the diagonal lines. 
+
+```{r combineplots}
+library(cowplot)
+pp <- plot_grid(p1, p2, p3, p4, labels = c("A", "B", "C", "D"))
+pp
+
+
+
+```
+
 
 ### Fitted v Residuals
 ```{r d5}
