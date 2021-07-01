@@ -5,24 +5,32 @@ date: "4/11/2021"
 output: pdf_document
 ---
 
+# Introduction
+This document details steps taken to model Scripps's Murrelet (*Synthliboramphus scrippsi*) egg size at Santa Barbara Island within Channel Islands National Park from 2009-2017.  
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
-## load libraries
+## load libraries and format data 
 library(here)
 library(tidyverse)
 library(janitor)
 library(ggplot2)
 library(lubridate)
 library(viridis)
-and format data 
-```{r data}
+library(lme4)
+library(RLRsim)
+library(faraway)
+library(sjPlot)
+library(forecast)
+
 egg <- read.csv(here("data", "SCMU_egg_data.csv")) 
 covars <- read.csv(here("data", "covariates", "covars.csv"))
 
 ## join covariate data with egg data by year
 SCMUdf <- left_join(egg, covars, by = "Year") %>%
   filter(TrueOrder == TRUE) %>% # egg order known only
+  filter(Size > 1210) %>% #removes the two LC outliers
   select(Year, Observer, Plot, Size, EggOrder, ANCHL, BEUTI, NPGO, ONI, PDO, SST) %>%
   as_tibble()
 ```
@@ -197,11 +205,11 @@ p3
 
 # qq Plot RE
 qqnorm(unlist(ranef_pl), main = "QQ plot (Plot RE)", las = 1, pch = 16)
-<<<<<<< HEAD
+
 #legend("topleft", "D", bty="n")
-=======
+
 # legend("topleft", "D", bty="n")
->>>>>>> 7199e346602b8f5f278f237e7206fc990289bc57
+
 qqline(unlist(ranef_pl))
 
 ## try ggplot code
@@ -481,17 +489,10 @@ for(i in 1:sims){
   }
 }  
 
-library(lme4)
-library(faraway)
-library(sjPlot)
-library(RLRsim)
-library(forecast)
+
 ```
 
 This is `r paste0("v.", (Sys.Date()))`
-
-# Introduction
-This document details steps taken to model Scripps's Murrelet (*Synthliboramphus scrippsi*) egg size at Santa Barbara Island within Channel Islands National Park from 2009-2017.  
 
 # Load 
 ##SJC added - you can do plots like this of the predictions and 95% CIs against the individual predictors 
