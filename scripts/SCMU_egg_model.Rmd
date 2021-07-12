@@ -345,7 +345,7 @@ cov_names[use_set[12,]] # Egg order, BEUTI, NPGO
 cov_names[use_set[16,]] # Egg order, NPGO, ONI
 cov_names[use_set[26,]] # Egg order, ANCHL, BEUTI, SST (>2 AIC)
 cov_names[use_set[30,]] # Egg order, PDO, SST (>2 AIC)
-cov_names[use_set[10,]] # Egg order, NPGO (>2 AIC)
+cov_names[use_set[18,]] # Egg order, PDO (>2 AIC)
 cov_names[use_set[24,]] # Egg order, BEUTI, SST (>2 AIC)
 
 ## run top models
@@ -353,7 +353,7 @@ topmod1 <- lmer(Size ~ EggOrder + BEUTI + NPGO + (1 | Plot), data = SCMUdf, REML
 topmod2 <- lmer(Size ~ EggOrder + NPGO + ONI + (1 | Plot), data = SCMUdf, REML = TRUE)
 topmod3 <- lmer(Size ~ EggOrder + ANCHL + BEUTI + SST + (1 | Plot), data = SCMUdf, REML = TRUE)
 topmod4 <- lmer(Size ~ EggOrder + PDO + SST + (1 | Plot), data = SCMUdf, REML = TRUE)
-topmod5 <- lmer(Size ~ EggOrder + NPGO + (1 | Plot), data = SCMUdf, REML = TRUE)
+topmod5 <- lmer(Size ~ EggOrder + PDO + (1 | Plot), data = SCMUdf, REML = TRUE)
 topmod6 <-lmer(Size ~ EggOrder + BEUTI + SST + (1 | Plot), data = SCMUdf, REML = TRUE)
 
 ## Model selection table
