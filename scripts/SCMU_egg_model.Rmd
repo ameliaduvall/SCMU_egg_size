@@ -489,10 +489,10 @@ for(i in 1:sims){
   }
 }  
 
-
 ```
 
-This is `r paste0("v.", (Sys.Date()))`
+
+```{r}
 
 # Load 
 ##SJC added - you can do plots like this of the predictions and 95% CIs against the individual predictors 
@@ -505,7 +505,6 @@ lines(SCMU.BEUTI$BEUTI[101:200],y = apply(pv.BEUTI,2,mean)[101:200],col="red")
 lines(SCMU.BEUTI$BEUTI[101:200],y = apply(pv.BEUTI,2,function(x)quantile(x,probs= 0.025))[101:200],lty=2,col = "red")
 lines(SCMU.BEUTI$BEUTI[101:200],y = apply(pv.BEUTI,2,function(x)quantile(x,probs= 0.975))[101:200],lty=2,col="red")
 
-  
 ```
 
 
@@ -518,7 +517,7 @@ for(i in 1:sims){
     y <- unlist(simulate(topmod1))
     bmod <- refit(topmod1,y)
     pv.BEUTI[i,] <- predict(bmod, re.form = ~0, newdata = SCMU.BEUTI) + rnorm(1,0,sd=plot.sd.1) + rnorm(1,0,sd=resid.sd.1)
-  }
+}
 
 ```
 
