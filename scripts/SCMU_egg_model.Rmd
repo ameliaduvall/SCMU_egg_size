@@ -415,7 +415,7 @@ SCMU.null$Plot <- sample(SCMUdf$Plot,200,replace = TRUE)
 #SCMU.null$Observer <- sample(SCMUdf$Observer,200,replace = TRUE)
 ```
 
-## Model prediciton for 2 top models
+## Model prediction for 2 top models
 ### BEUTI
 ```{r predict BEUTI, warning = FALSE}
 #then vary just one predictor at a time for prediction. For example, create the dataset SCMU. BEUTI that will be used for predictions where the only thing that values is BEUTI 
@@ -429,7 +429,8 @@ resid.sd.1 <- as.data.frame(VarCorr(topmod1))$sdcor[2]
 plot.sd.2 <- as.data.frame(VarCorr(topmod2))$sdcor[1]
 resid.sd.2 <- as.data.frame(VarCorr(topmod2))$sdcor[2]
 
-sims <- 100 # update to 10,000
+#sims <- 100 
+sims <- 10000
 
 ## model prediction for 2 top models
 pv.BEUTI <- matrix(nrow = sims, ncol = nrow(SCMU.BEUTI))
@@ -462,7 +463,8 @@ resid.sd.1 <- as.data.frame(VarCorr(topmod1))$sdcor[2]
 plot.sd.2 <- as.data.frame(VarCorr(topmod2))$sdcor[1]
 resid.sd.2 <- as.data.frame(VarCorr(topmod2))$sdcor[2]
 
-sims <- 100 # update to 10,000
+#sims <- 100 
+sims <- 10000
 
 pv.NPGO <- matrix(nrow = sims, ncol = nrow(SCMU.NPGO))
 for(i in 1:sims){
@@ -498,7 +500,8 @@ resid.sd.1 <- as.data.frame(VarCorr(topmod1))$sdcor[2]
 plot.sd.2 <- as.data.frame(VarCorr(topmod2))$sdcor[1]
 resid.sd.2 <- as.data.frame(VarCorr(topmod2))$sdcor[2]
 
-sims <- 100 # update to 10,000
+#sims <- 100 
+sims <- 10000
 
 pv.ONI <- matrix(nrow = sims, ncol = nrow(SCMU.ONI))
 for(i in 1:sims){
@@ -588,7 +591,7 @@ lines(SCMU.ONI$ONI[1:100],y = apply(pv.ONI,2,function(x)quantile(x,probs= 0.975)
 ```
 
 
-## Model prediction for the top mode only
+## Model prediction for the top model only
 
 ### BEUTI
 ```{r}
