@@ -34,6 +34,8 @@ SCMUdf <- left_join(egg, covars, by = "Year") %>%
 ```
 
 # Prediction
+
+## Model prediction for the 2 top models
 Run the top models and create a table of AIC scores. 
 ```{r predict, warning = FALSE}
 topmod1 <- lmer(Size ~ EggOrder + BEUTI + NPGO + (1 | Plot), data = SCMUdf, REML = TRUE)
@@ -83,7 +85,7 @@ resid.sd.1 <- as.data.frame(VarCorr(topmod1))$sdcor[2]
 plot.sd.2 <- as.data.frame(VarCorr(topmod2))$sdcor[1]
 resid.sd.2 <- as.data.frame(VarCorr(topmod2))$sdcor[2]
 
-sims <- 100 # update to 10,000
+sims <- 10000 # run 100 to check, otherwise update to 10,000
 
 ## model prediction for 2 top models
 pv.BEUTI <- matrix(nrow = sims, ncol = nrow(SCMU.BEUTI))
@@ -122,7 +124,7 @@ resid.sd.1 <- as.data.frame(VarCorr(topmod1))$sdcor[2]
 plot.sd.2 <- as.data.frame(VarCorr(topmod2))$sdcor[1]
 resid.sd.2 <- as.data.frame(VarCorr(topmod2))$sdcor[2]
 
-sims <- 100 # update to 10,000
+sims <- 10000 # run 100 to check, otherwise update to 10,000
 
 pv.NPGO <- matrix(nrow = sims, ncol = nrow(SCMU.NPGO))
 for(i in 1:sims){
@@ -160,7 +162,7 @@ resid.sd.1 <- as.data.frame(VarCorr(topmod1))$sdcor[2]
 plot.sd.2 <- as.data.frame(VarCorr(topmod2))$sdcor[1]
 resid.sd.2 <- as.data.frame(VarCorr(topmod2))$sdcor[2]
 
-sims <- 100 # update to 10,000
+sims <- 10000 # run 100 to check, otherwise update to 10,000
 
 pv.ONI <- matrix(nrow = sims, ncol = nrow(SCMU.ONI))
 for(i in 1:sims){
@@ -236,9 +238,9 @@ color_pal <- c("#593d9cff", "#f68f46ff")
 
 ### BEUTI
 y1 <- as.data.frame(apply(pv.BEUTI,2,mean))
-quantile.low <- as.data.frame(apply(pv.BEUTI,2,function(x)quantile(x,probs= 0.025)))
-quantile.high <- as.data.frame(apply(pv.BEUTI,2,function(x)quantile(x,probs= 0.975)))
-BEUTI.pred <- cbind(y1, quantile.low, quantile.high, SCMU.BEUTI$BEUTI) %>%
+quantile.low1 <- as.data.frame(apply(pv.BEUTI,2,function(x)quantile(x,probs= 0.025)))
+quantile.high1 <- as.data.frame(apply(pv.BEUTI,2,function(x)quantile(x,probs= 0.975)))
+BEUTI.pred <- cbind(y1, quantile.low1, quantile.high1, SCMU.BEUTI$BEUTI) %>%
   mutate(EggOrder = c(rep("Egg1",100),rep("Egg2",100)))
 colnames(BEUTI.pred) <- c("mean", "low", "high", "BEUTI", "egg_order")
 
@@ -310,63 +312,143 @@ p3
 library(patchwork)
 all <- p1 + p2 + p3
 all
-ggsave(here("results", "pred_plots.pdf"))
+# ggsave(here("results", "pred_plots.pdf"), width = 10, height = 7)
 ```
-
 
 
 ## Model prediction for the top model only
 
 ### BEUTI
-```{r}
+```{r predict BEUTIv2, warning = FALSE}
 # model prediction for one model only (top model)
-pv.BEUTI <- matrix(nrow = sims, ncol = nrow(SCMU.BEUTI))
+pv.BEUTIv2 <- matrix(nrow = sims, ncol = nrow(SCMU.BEUTI))
 for(i in 1:sims){
     #we simulate conditioning on no specific random effects levels
     y <- unlist(simulate(topmod1))
     bmod <- refit(topmod1,y)
-    pv.BEUTI[i,] <- predict(bmod, re.form = ~0, newdata = SCMU.BEUTI) + rnorm(1,0,sd=plot.sd.1) + rnorm(1,0,sd=resid.sd.1)
+    pv.BEUTIv2[i,] <- predict(bmod, re.form = ~0, newdata = SCMU.BEUTI) + rnorm(1,0,sd=plot.sd.1) + rnorm(1,0,sd=resid.sd.1)
 }
+
+## check plots
+plot(SCMU.BEUTI$BEUTI[1:100],y = apply(pv.BEUTIv2,2,mean)[1:100],xlab = "BEUTI",ylab = "Egg Size",type = "l",ylim = c(1500,2500))
+lines(SCMU.BEUTI$BEUTI[1:100],y = apply(pv.BEUTIv2,2,function(x)quantile(x,probs= 0.025))[1:100],lty=2)
+lines(SCMU.BEUTI$BEUTI[1:100],y = apply(pv.BEUTIv2,2,function(x)quantile(x,probs= 0.975))[1:100],lty=2)
 ```
 
 ### NPGO
-```{r}
+```{r predict NPGOv2, warning = FALSE}
 # model prediction for one model only (top model)
-pv.NPGO <- matrix(nrow = sims, ncol = nrow(SCMU.NPGO))
+pv.NPGOv2 <- matrix(nrow = sims, ncol = nrow(SCMU.NPGO))
 for(i in 1:sims){
     #we simulate conditioning on no specific random effects levels
     y <- unlist(simulate(topmod1))
     bmod <- refit(topmod1,y)
-    pv.NPGO[i,] <- predict(bmod, re.form = ~0, newdata = SCMU.NPGO) + rnorm(1,0,sd=plot.sd.1) + rnorm(1,0,sd=resid.sd.1)
+    pv.NPGOv2[i,] <- predict(bmod, re.form = ~0, newdata = SCMU.NPGO) + rnorm(1,0,sd=plot.sd.1) + rnorm(1,0,sd=resid.sd.1)
 }
+
+## check plots
+plot(SCMU.NPGO$NPGO[1:100],y = apply(pv.NPGOv2,2,mean)[1:100],xlab = "NPGO",ylab = "Egg Size",type = "l",ylim = c(1500,2500))
+lines(SCMU.NPGO$NPGO[1:100],y = apply(pv.NPGOv2,2,function(x)quantile(x,probs= 0.025))[1:100],lty=2)
+lines(SCMU.NPGO$NPGO[1:100],y = apply(pv.NPGOv2,2,function(x)quantile(x,probs= 0.975))[1:100],lty=2)
 ```
 
 ### ONI
-```{r}
+```{r predict ONIv2, warning = FALSE}
 # model prediction for one model only (top model)
-pv.ONI <- matrix(nrow = sims, ncol = nrow(SCMU.ONI))
+pv.ONIv2 <- matrix(nrow = sims, ncol = nrow(SCMU.ONI))
 for(i in 1:sims){
     #we simulate conditioning on no specific random effects levels
     y <- unlist(simulate(topmod1))
     bmod <- refit(topmod1,y)
-    pv.ONI[i,] <- predict(bmod, re.form = ~0, newdata = SCMU.ONI) + rnorm(1,0,sd=plot.sd.1) + rnorm(1,0,sd=resid.sd.1)
+    pv.ONIv2[i,] <- predict(bmod, re.form = ~0, newdata = SCMU.ONI) + rnorm(1,0,sd=plot.sd.1) + rnorm(1,0,sd=resid.sd.1)
 }
+
+## check plots
+plot(SCMU.ONI$ONI[1:100],y = apply(pv.ONIv2,2,mean)[1:100],xlab = "ONI",ylab = "Egg Size",type = "l",ylim = c(1500,2500))
+lines(SCMU.ONI$ONI[1:100],y = apply(pv.ONIv2,2,function(x)quantile(x,probs= 0.025))[1:100],lty=2)
+lines(SCMU.ONI$ONI[1:100],y = apply(pv.ONIv2,2,function(x)quantile(x,probs= 0.975))[1:100],lty=2)
 ```
 
 ### Plots
-```{r combine plots, warning = FALSE}
-plot(SCMU.BEUTI$BEUTI[1:100],y = apply(pv.BEUTI,2,mean)[1:100],xlab = "BEUTI",ylab = "Egg Size",type = "l",ylim = c(1500,2500))
-lines(SCMU.BEUTI$BEUTI[1:100],y = apply(pv.BEUTI,2,function(x)quantile(x,probs= 0.025))[1:100],lty=2)
-lines(SCMU.BEUTI$BEUTI[1:100],y = apply(pv.BEUTI,2,function(x)quantile(x,probs= 0.975))[1:100],lty=2)
+```{r combine plots v2, warning = FALSE}
+## ggplot
+color_pal <- c("#593d9cff", "#f68f46ff")
 
-plot(SCMU.NPGO$NPGO[1:100],y = apply(pv.NPGO,2,mean)[1:100],xlab = "NPGO",ylab = "Egg Size",type = "l",ylim = c(1500,2500))
-lines(SCMU.NPGO$NPGO[1:100],y = apply(pv.NPGO,2,function(x)quantile(x,probs= 0.025))[1:100],lty=2)
-lines(SCMU.NPGO$NPGO[1:100],y = apply(pv.NPGO,2,function(x)quantile(x,probs= 0.975))[1:100],lty=2)
-  
-plot(SCMU.ONI$ONI[1:100],y = apply(pv.ONI,2,mean)[1:100],xlab = "ONI",ylab = "Egg Size",type = "l",ylim = c(1500,2500))
-lines(SCMU.ONI$ONI[1:100],y = apply(pv.ONI,2,function(x)quantile(x,probs= 0.025))[1:100],lty=2)
-lines(SCMU.ONI$ONI[1:100],y = apply(pv.ONI,2,function(x)quantile(x,probs= 0.975))[1:100],lty=2)
+### BEUTI
+y4 <- as.data.frame(apply(pv.BEUTIv2,2,mean))
+quantile.low4 <- as.data.frame(apply(pv.BEUTIv2,2,function(x)quantile(x,probs= 0.025)))
+quantile.high4 <- as.data.frame(apply(pv.BEUTIv2,2,function(x)quantile(x,probs= 0.975)))
+BEUTI.pred4 <- cbind(y4, quantile.low4, quantile.high4, SCMU.BEUTI$BEUTI) %>%
+  mutate(EggOrder = c(rep("Egg1",100),rep("Egg2",100)))
+colnames(BEUTI.pred4) <- c("mean", "low", "high", "BEUTI", "egg_order")
 
-## try with ggplot
-ggplot(data = SCMU.BEUTI) +
+p4 <- ggplot(data = BEUTI.pred4) +
+  geom_line(aes(x = BEUTI, y = mean, color = egg_order)) +
+  geom_ribbon(aes(ymin = low, ymax = high, x = BEUTI, fill = egg_order), alpha = 0.25, linetype = "dashed") +
+  ylim(c(1500,2500)) +
+  scale_color_manual(values = color_pal) + 
+  scale_fill_manual(values = color_pal) +
+  ylab("Egg Size") +
+  theme_minimal() +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        legend.position = "none")
+p4
+
+### NPGO
+y5 <- as.data.frame(apply(pv.NPGOv2,2,mean))
+quantile.low5 <- as.data.frame(apply(pv.NPGOv2,2,function(x)quantile(x,probs= 0.025)))
+quantile.high5 <- as.data.frame(apply(pv.NPGOv2,2,function(x)quantile(x,probs= 0.975)))
+NPGO.pred5 <- cbind(y5, quantile.low5, quantile.high5, SCMU.NPGO$NPGO) %>%
+  mutate(EggOrder = c(rep("Egg1",100),rep("Egg2",100)))
+colnames(NPGO.pred5) <- c("mean", "low", "high", "NPGO", "egg_order")
+
+p5 <- ggplot(data = NPGO.pred5) +
+  geom_line(aes(x = NPGO, y = mean, color = egg_order)) +
+  geom_ribbon(aes(ymin = low, ymax = high, x = NPGO, fill = egg_order), alpha = 0.25, linetype = "dashed") +
+  ylim(c(1500,2500)) +
+  scale_color_manual(values = color_pal) + 
+  scale_fill_manual(values = color_pal) +
+  ylab("Egg Size") +
+  theme_minimal() +
+  guides(size = FALSE) +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        axis.title.y = element_blank(), 
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        legend.title = element_blank(),
+        legend.position = "bottom")
+p5
+
+### ONI
+y6 <- as.data.frame(apply(pv.ONIv2,2,mean))
+quantile.low6 <- as.data.frame(apply(pv.ONIv2,2,function(x)quantile(x,probs= 0.025)))
+quantile.high6 <- as.data.frame(apply(pv.ONIv2,2,function(x)quantile(x,probs= 0.975)))
+ONI.pred6 <- cbind(y6, quantile.low6, quantile.high6, SCMU.ONI$ONI) %>%
+  mutate(EggOrder = c(rep("Egg1",100),rep("Egg2",100)))
+colnames(ONI.pred6) <- c("mean", "low", "high", "ONI", "egg_order")
+
+p6 <- ggplot(data = ONI.pred6) +
+  geom_line(aes(x = ONI, y = mean, color = egg_order)) +
+  geom_ribbon(aes(ymin = low, ymax = high, x = ONI, fill = egg_order), alpha = 0.25, linetype = "dashed") +
+  ylim(c(1500,2500)) +
+  scale_color_manual(values = color_pal) + 
+  scale_fill_manual(values = color_pal) +
+  ylab("Egg Size") +
+  theme_minimal() +
+  guides(size = FALSE) +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        axis.title.y = element_blank(), 
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        legend.position = "none")
+p6
+
+## plot together
+library(patchwork)
+all2 <- p4 + p5 + p6
+all2
+# ggsave(here("results", "pred_plots_v2.pdf"), width = 10, height = 7)
 ```
