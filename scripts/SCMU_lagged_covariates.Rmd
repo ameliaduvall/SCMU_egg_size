@@ -15,7 +15,7 @@ library(janitor)
 library(ggplot2)
 library(lubridate)
 library(viridis)
-library(lme4)
+library(stats)
 library(faraway)
 library(sjPlot)
 ```
@@ -90,8 +90,8 @@ ANCHL1 <- full_join(ANCHL_full, ANCHL_full_lag, by = "Year")
 ANCHLdf1 <- left_join(egg, ANCHL1, by = "Year")
   
 ## run models
-ANCHL_full_mod <- lmer(Size ~ ANCHL_full + (1 | Plot), data = ANCHLdf1) 
-ANCHL_full_lag_mod <- lmer(Size ~ ANCHL_full_lag + (1 | Plot), data = ANCHLdf1)
+ANCHL_full_mod <- lm(Size ~ ANCHL_full , data = ANCHLdf1) 
+ANCHL_full_lag_mod <- lm(Size ~ ANCHL_full_lag, data = ANCHLdf1)
 
 ## Model selection table
 ANHCL_AIC <- matrix(NA, nrow = 2, ncol = 3) 
@@ -191,10 +191,10 @@ BEUTI3 <- full_join(BEUTI2, BEUTI_full_lag, by = "Year")
 BEUTI_df <- left_join(egg, BEUTI3, by = "Year")
   
 ## run models
-BEUTI_half_mod <- lmer(Size ~ BEUTI_half + (1 | Plot), data = BEUTI_df)
-BEUTI_full_mod <- lmer(Size ~ BEUTI_full + (1 | Plot), data = BEUTI_df)
-BEUTI_half_lag_mod <- lmer(Size ~ BEUTI_half_lag + (1 | Plot), data = BEUTI_df)
-BEUTI_full_lag_mod <- lmer(Size ~ BEUTI_full_lag + (1 | Plot), data = BEUTI_df)
+BEUTI_half_mod <- lm(Size ~ BEUTI_half, data = BEUTI_df)
+BEUTI_full_mod <- lm(Size ~ BEUTI_full, data = BEUTI_df)
+BEUTI_half_lag_mod <- lm(Size ~ BEUTI_half_lag, data = BEUTI_df)
+BEUTI_full_lag_mod <- lm(Size ~ BEUTI_full_lag, data = BEUTI_df)
 
 ## Model selection table
 BEUTI_AIC <- matrix(NA, nrow = 4, ncol = 3) # 4 rows for 6 top models
@@ -296,10 +296,10 @@ SST3 <- full_join(SST2, SST_full_lag, by = "Year")
 SST_df <- left_join(egg, SST3, by = "Year")
   
 ## run models
-SST_half_mod <- lmer(Size ~ SST_half + (1 | Plot), data = SST_df)
-SST_full_mod <- lmer(Size ~ SST_full + (1 | Plot), data = SST_df)
-SST_half_lag_mod <- lmer(Size ~ SST_half_lag + (1 | Plot), data = SST_df)
-SST_full_lag_mod <- lmer(Size ~ SST_full_lag + (1 | Plot), data = SST_df)
+SST_half_mod <- lm(Size ~ SST_half, data = SST_df)
+SST_full_mod <- lm(Size ~ SST_full, data = SST_df)
+SST_half_lag_mod <- lm(Size ~ SST_half_lag, data = SST_df)
+SST_full_lag_mod <- lm(Size ~ SST_full_lag, data = SST_df)
 
 ## Model selection table
 SST_AIC <- matrix(NA, nrow = 4, ncol = 3) # 4 rows for 6 top models
@@ -402,10 +402,10 @@ NPGO3 <- full_join(NPGO2, NPGO_full_lag, by = "Year")
 NPGO_df <- left_join(egg, NPGO3, by = "Year")
   
 ## run models
-NPGO_half_mod <- lmer(Size ~ NPGO_half + (1 | Plot), data = NPGO_df)
-NPGO_full_mod <- lmer(Size ~ NPGO_full + (1 | Plot), data = NPGO_df)
-NPGO_half_lag_mod <- lmer(Size ~ NPGO_half_lag + (1 | Plot), data = NPGO_df)
-NPGO_full_lag_mod <- lmer(Size ~ NPGO_full_lag + (1 | Plot), data = NPGO_df)
+NPGO_half_mod <- lm(Size ~ NPGO_half, data = NPGO_df)
+NPGO_full_mod <- lm(Size ~ NPGO_full, data = NPGO_df)
+NPGO_half_lag_mod <- lm(Size ~ NPGO_half_lag, data = NPGO_df)
+NPGO_full_lag_mod <- lm(Size ~ NPGO_full_lag, data = NPGO_df)
 
 ## Model selection table
 NPGO_AIC <- matrix(NA, nrow = 4, ncol = 3) # 4 rows for 6 top models
@@ -508,10 +508,10 @@ PDO3 <- full_join(PDO2, PDO_full_lag, by = "Year")
 PDO_df <- left_join(egg, PDO3, by = "Year")
   
 ## run models
-PDO_half_mod <- lmer(Size ~ PDO_half + (1 | Plot), data = PDO_df)
-PDO_full_mod <- lmer(Size ~ PDO_full + (1 | Plot), data = PDO_df)
-PDO_half_lag_mod <- lmer(Size ~ PDO_half_lag + (1 | Plot), data = PDO_df)
-PDO_full_lag_mod <- lmer(Size ~ PDO_full_lag + (1 | Plot), data = PDO_df)
+PDO_half_mod <- lm(Size ~ PDO_half, data = PDO_df)
+PDO_full_mod <- lm(Size ~ PDO_full, data = PDO_df)
+PDO_half_lag_mod <- lm(Size ~ PDO_half_lag, data = PDO_df)
+PDO_full_lag_mod <- lm(Size ~ PDO_full_lag, data = PDO_df)
 
 ## Model selection table
 PDO_AIC <- matrix(NA, nrow = 4, ncol = 3) # 4 rows for 6 top models
@@ -614,10 +614,10 @@ ONI3 <- full_join(ONI2, ONI_full_lag, by = "Year")
 ONI_df <- left_join(egg, ONI3, by = "Year")
   
 ## run models
-ONI_half_mod <- lmer(Size ~ ONI_half + (1 | Plot), data = ONI_df)
-ONI_full_mod <- lmer(Size ~ ONI_full + (1 | Plot), data = ONI_df)
-ONI_half_lag_mod <- lmer(Size ~ ONI_half_lag + (1 | Plot), data = ONI_df)
-ONI_full_lag_mod <- lmer(Size ~ ONI_full_lag + (1 | Plot), data = ONI_df)
+ONI_half_mod <- lm(Size ~ ONI_half, data = ONI_df)
+ONI_full_mod <- lm(Size ~ ONI_full, data = ONI_df)
+ONI_half_lag_mod <- lm(Size ~ ONI_half_lag, data = ONI_df)
+ONI_full_lag_mod <- lm(Size ~ ONI_full_lag, data = ONI_df)
 
 ## Model selection table
 ONI_AIC <- matrix(NA, nrow = 4, ncol = 3) # 4 rows for 6 top models
