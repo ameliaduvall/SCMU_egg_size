@@ -377,10 +377,27 @@ Here we look at the top competitive models.
 ```{r topmod1}
 topmod1 <- lmer(Size ~ EggOrder + BEUTI + NPGO + (1 | Plot), data = SCMUdf, REML = TRUE)
 summary(topmod1)  
+confint(topmod1)
 ```
 
 ## Top Model 2
 ```{r topmod2}
 topmod2 <- lmer(Size ~ EggOrder + NPGO + ONI + (1 | Plot), data = SCMUdf, REML = TRUE)
 summary(topmod2)
+confint(topmod2)
+```
+
+## Top Model 3
+```{r topmod2}
+topmod3 <- lmer(Size ~ EggOrder + ANCHL + BEUTI + SST + (1 | Plot), data = SCMUdf, REML = TRUE)
+summary(topmod3)
+confint(topmod3)
+```
+
+
+## Top Model 4
+```{r topmod2}
+topmod4 <- lmer(Size ~ EggOrder + PDO + SST + (1 | Plot), data = SCMUdf, REML = TRUE)
+summary(topmod4)
+confint(topmod4)
 ```
