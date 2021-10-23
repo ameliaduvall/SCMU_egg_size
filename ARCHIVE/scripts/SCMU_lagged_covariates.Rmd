@@ -1,0 +1,635 @@
+---
+title: "Single Covariate Model Selection for Scripps's Murrelet Linear Mixed Model"
+author: "Amelia J. DuVall & Marcela Todd"
+date: "5/16/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+## load libraries
+library(here)
+library(tidyverse)
+library(janitor)
+library(ggplot2)
+library(lubridate)
+library(viridis)
+library(stats)
+library(faraway)
+library(sjPlot)
+```
+
+This is `r paste0("v.", (Sys.Date()))`
+
+# Introduction
+The covariates we selected to test the relationship between Scripps's Murrelet egg size and oceanographic conditions are collected at various temporal and spatial scales. In addition, the effects of some oceanographic conditions may take time to manifest in terms of prey availability for murrelets during the breeding season and other impacts that may affect egg size. Given the differences in spatial and temporal extent of oceanographic variables and their impacts on seabirds, we tested all environmental covariates for the Scripps's Murrelet egg size model (see SCMU_egg_model.Rmd) under four scenarios:
+1. Monthly averages for January to June in year $t$ (6 months) to encompass only pre-breeding and laying season ("half")
+2. Monthly averages for July in year $t-1$ to June in year $t$ (12 months) to encompass the entire post-breeding, pre-breeding, and breeding season ("full")
+3. Monthly averages for January to June in year $t-1$ (6 months) to encompass only pre-breeding and laying season in the previous year ("half_lag")
+4. Monthly averages for July in year $t-2$ to June in year $t-1$ (12 months) to encompass the entire post-breeding, pre-breeding, and breeding season in the previous year ("full_lag")
+
+We tested 6 covariates: 
+1. Larval anchovy (ANCHL) - This covariate is only available at a yearly sampling rate. Therefore, we tested this variable under two scenarios: 1) yearly value in time $t$, and 2) yearly value in time $t-1$. 
+2. Biologically Effective Upwelling Transport Index (BEUTI)  
+3. Sea Surface Temperature (SST)  
+4. North Pacific Gyre Oscillation Index (NPGO)  
+5. Pacific Decadal Oscillation Index (PDO)  
+6. Oceanic Nino Index (ONI)  
+
+See SCMU_egg_covariates.Rmd for more information on covariate sourcing.  
+
+```{r df}
+## load egg size data
+egg <- read.csv(here("data", "SCMU_egg_data.csv"))%>%
+  filter(TrueOrder == TRUE) %>% # egg order known only
+  select(Year, Observer, Plot, Size, EggOrder)
+```
+
+# Environmental Covariates
+
+## ANCHL
+ANCHL sampling data is only available at a yearly sampling interval. 
+```{r anchovyl}
+## load data
+ANCHLraw  <- read.csv(here("data", "covariates", "cciea_EI_FBS_2020_a29e_1fd0_409d.csv"), na.strings = "NaN")
+
+## are there NAs in the data?
+sum(is.na(ANCHLraw$relative_abundance))
+
+## create dataset from 2009-2017 for values in year t 
+ANCHL_full <- ANCHLraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time)) %>%
+  mutate(ANCHL = as.numeric(relative_abundance)) %>%
+  arrange(Year) %>%
+  dplyr::select(Year, ANCHL) %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  mutate(ANCHL_full = scale(ANCHL)) %>%
+  dplyr::select(Year, ANCHL_full)
+
+## create dataset from 2008-2016 for values in year t-1 
+ANCHL_full_lag <- ANCHLraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time)) %>%
+  mutate(ANCHL = as.numeric(relative_abundance)) %>%
+  arrange(Year) %>%
+  dplyr::select(Year, ANCHL) %>%
+  filter(Year >= 2008 & Year <= 2016) %>%
+  mutate(TrueYear = Year,
+         Year = TrueYear + 1,
+         ANCHL_full_lag = scale(ANCHL)) %>%
+  dplyr::select(Year, ANCHL_full_lag)
+
+## join no-lag and lag datasets
+ANCHL1 <- full_join(ANCHL_full, ANCHL_full_lag, by = "Year")
+
+## join with egg size data
+ANCHLdf1 <- left_join(egg, ANCHL1, by = "Year")
+  
+## run models
+ANCHL_full_mod <- lm(Size ~ ANCHL_full , data = ANCHLdf1) 
+ANCHL_full_lag_mod <- lm(Size ~ ANCHL_full_lag, data = ANCHLdf1)
+
+## Model selection table
+ANHCL_AIC <- matrix(NA, nrow = 2, ncol = 3) 
+ANHCL_AIC[1,1] <- AIC(ANCHL_full_mod) 
+ANHCL_AIC[2,1] <- AIC(ANCHL_full_lag_mod) 
+ANHCL_AIC[,2] <- ANHCL_AIC[,1] - min(ANHCL_AIC[,1]) # calculate delta AIC
+ANHCL_AIC[,3] <- exp(-0.5*ANHCL_AIC[,2])/(sum(exp(-0.5*ANHCL_AIC[,2]))) # calculate model weights
+colnames(ANHCL_AIC) <- c("AIC", "deltaAIC", "model_weights")
+rownames(ANHCL_AIC) <- c("full", "full_lag")
+print(ANHCL_AIC)
+```
+There is support to use the ANCHL data in year $t$ since the lagged data is delta AIC > 2. 
+
+## BEUTI
+```{r BEUTI1}
+BEUTIraw <- read_csv(here("data", "covariates", "cciea_OC_BEUTI_784c_ef9f_af6f.csv"))
+
+## are there NAs in the data?
+sum(is.na(BEUTIraw$beuti))
+
+## Scenario 1: "half" dataset from Jan-June in time t
+BEUTI_half <- BEUTIraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time),
+         Month = month(time)) %>%
+  mutate(beuti = as.numeric(beuti)) %>%
+  filter(Month == 1 | Month == 2 | Month == 3 |Month == 4 | Month == 5 | Month == 6) %>%
+  group_by(Year) %>%
+  summarise(BEUTI = mean(beuti, na.rm = TRUE)) %>%
+  dplyr::select(Year, BEUTI) %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  mutate(BEUTI_half = scale(BEUTI)) %>%
+  arrange(Year) %>%
+  dplyr::select(Year, BEUTI_half)
+
+## Scenario 2: "full" dataset from July in time t-1 to June in time t
+BEUTI_full <- BEUTIraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time),
+         Month = month(time)) %>%
+  mutate(beuti = as.numeric(beuti),
+         split_year = ifelse(Month == 7 | Month == 8 | Month == 9 | Month == 10 | Month == 11 | Month == 12,
+                             Year + 1, Year)) %>%
+  rename(Year = split_year, true_year = Year) %>%
+  group_by(Year) %>%
+  summarise(BEUTI = mean(beuti, na.rm = TRUE)) %>%
+  dplyr::select(Year, BEUTI) %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  mutate(BEUTI_full = scale(BEUTI)) %>%
+  arrange(Year) %>%
+  dplyr::select(Year, BEUTI_full)
+
+## Scenario 3: "half_lag" dataset from Jan-June in time t-1
+BEUTI_half_lag <- BEUTIraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time),
+         Month = month(time)) %>%
+  mutate(beuti = as.numeric(beuti)) %>%
+  filter(Month == 1 | Month == 2 | Month == 3 |Month == 4 | Month == 5 | Month == 6) %>%
+  mutate(Year = Year + 1) %>%
+  group_by(Year) %>%
+  summarise(BEUTI = mean(beuti, na.rm = TRUE)) %>%
+  dplyr::select(Year, BEUTI) %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  mutate(BEUTI_half_lag = scale(BEUTI)) %>%
+  arrange(Year) %>%
+  dplyr::select(Year, BEUTI_half_lag)
+
+## Scenario 4: "full_lag" dataset from July in time t-2 to June in time t-1
+BEUTI_full_lag <- BEUTIraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time),
+         Month = month(time)) %>%
+  mutate(beuti = as.numeric(beuti),
+         split_year = ifelse(Month == 7 | Month == 8 | Month == 9 | Month == 10 | Month == 11 | Month == 12,
+                             Year + 1, Year)) %>%
+  rename(Year = split_year, true_year = Year) %>%
+  mutate(Year = Year + 1) %>%
+  group_by(Year) %>%
+  summarise(BEUTI = mean(beuti, na.rm = TRUE)) %>%
+  dplyr::select(Year, BEUTI) %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  mutate(BEUTI_full_lag = scale(BEUTI)) %>%
+  arrange(Year) %>%
+  dplyr::select(Year, BEUTI_full_lag)
+
+## join datasets together
+BEUTI1 <- full_join(BEUTI_half, BEUTI_full, by = "Year")
+BEUTI2 <- full_join(BEUTI1, BEUTI_half_lag, by = "Year")
+BEUTI3 <- full_join(BEUTI2, BEUTI_full_lag, by = "Year")
+
+## join with egg size data
+BEUTI_df <- left_join(egg, BEUTI3, by = "Year")
+  
+## run models
+BEUTI_half_mod <- lm(Size ~ BEUTI_half, data = BEUTI_df)
+BEUTI_full_mod <- lm(Size ~ BEUTI_full, data = BEUTI_df)
+BEUTI_half_lag_mod <- lm(Size ~ BEUTI_half_lag, data = BEUTI_df)
+BEUTI_full_lag_mod <- lm(Size ~ BEUTI_full_lag, data = BEUTI_df)
+
+## Model selection table
+BEUTI_AIC <- matrix(NA, nrow = 4, ncol = 3) # 4 rows for 6 top models
+BEUTI_AIC[1,1] <- AIC(BEUTI_half_mod) 
+BEUTI_AIC[2,1] <- AIC(BEUTI_full_mod) 
+BEUTI_AIC[3,1] <- AIC(BEUTI_half_lag_mod)
+BEUTI_AIC[4,1] <- AIC(BEUTI_full_lag_mod) 
+BEUTI_AIC[,2] <- BEUTI_AIC[,1] - min(BEUTI_AIC[,1]) # calculate delta AIC
+BEUTI_AIC[,3] <- exp(-0.5*BEUTI_AIC[,2])/(sum(exp(-0.5*BEUTI_AIC[,2]))) # calculate model weights
+colnames(BEUTI_AIC) <- c("AIC", "deltaAIC", "model_weights")
+rownames(BEUTI_AIC) <- c("half", "full", "half_lag", "full_lag")
+print(BEUTI_AIC)
+```
+The BEUTI full_lag model has more support. 
+
+## SST
+```{r SST}
+SSTraw <- read_csv(here("data", "covariates", "cciea_OC_SST3_91cf_d165_213f-46025.csv"))
+
+## are there NAs in the data?
+sum(is.na(SSTraw$SST))
+
+## Scenario 1: "half" dataset from Jan-June in time t
+SST_half <- SSTraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time),
+         Month = month(time)) %>%
+  mutate(sst = as.numeric(SST)) %>%
+  filter(Month == 1 | Month == 2 | Month == 3 |Month == 4 | Month == 5 | Month == 6) %>%
+  group_by(Year) %>%
+  summarise(SST = mean(sst, na.rm = TRUE)) %>%
+  dplyr::select(Year, SST) %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  mutate(SST_half = scale(SST)) %>%
+  arrange(Year) %>%
+  dplyr::select(Year, SST_half)
+
+## Scenario 2: "full" dataset from July in time t-1 to June in time t
+SST_full <- SSTraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time),
+         Month = month(time)) %>%
+  mutate(sst = as.numeric(SST),
+         split_year = ifelse(Month == 7 | Month == 8 | Month == 9 | Month == 10 | Month == 11 | Month == 12,
+                             Year + 1, Year)) %>%
+  rename(Year = split_year, true_year = Year) %>%
+  group_by(Year) %>%
+  summarise(SST = mean(sst, na.rm = TRUE)) %>%
+  dplyr::select(Year, SST) %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  mutate(SST_full = scale(SST)) %>%
+  arrange(Year) %>%
+  dplyr::select(Year, SST_full)
+
+## Scenario 3: "half_lag" dataset from Jan-June in time t-1
+SST_half_lag <- SSTraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time),
+         Month = month(time)) %>%
+  mutate(sst = as.numeric(SST)) %>%
+  filter(Month == 1 | Month == 2 | Month == 3 |Month == 4 | Month == 5 | Month == 6) %>%
+  mutate(Year = Year + 1) %>%
+  group_by(Year) %>%
+  summarise(SST = mean(sst, na.rm = TRUE)) %>%
+  dplyr::select(Year, SST) %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  mutate(SST_half_lag = scale(SST)) %>%
+  arrange(Year) %>%
+  dplyr::select(Year, SST_half_lag)
+
+## Scenario 4: "full_lag" dataset from July in time t-2 to June in time t-1
+SST_full_lag <- SSTraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time),
+         Month = month(time)) %>%
+  mutate(sst = as.numeric(SST),
+         split_year = ifelse(Month == 7 | Month == 8 | Month == 9 | Month == 10 | Month == 11 | Month == 12,
+                             Year + 1, Year)) %>%
+  rename(Year = split_year, true_year = Year) %>%
+  mutate(Year = Year + 1) %>%
+  group_by(Year) %>%
+  summarise(SST = mean(sst, na.rm = TRUE)) %>%
+  dplyr::select(Year, SST) %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  mutate(SST_full_lag = scale(SST)) %>%
+  arrange(Year) %>%
+  dplyr::select(Year, SST_full_lag)
+
+## join datasets together
+SST1 <- full_join(SST_half, SST_full, by = "Year")
+SST2 <- full_join(SST1, SST_half_lag, by = "Year")
+SST3 <- full_join(SST2, SST_full_lag, by = "Year")
+
+## join with egg size data
+SST_df <- left_join(egg, SST3, by = "Year")
+  
+## run models
+SST_half_mod <- lm(Size ~ SST_half, data = SST_df)
+SST_full_mod <- lm(Size ~ SST_full, data = SST_df)
+SST_half_lag_mod <- lm(Size ~ SST_half_lag, data = SST_df)
+SST_full_lag_mod <- lm(Size ~ SST_full_lag, data = SST_df)
+
+## Model selection table
+SST_AIC <- matrix(NA, nrow = 4, ncol = 3) # 4 rows for 6 top models
+SST_AIC[1,1] <- AIC(SST_half_mod) 
+SST_AIC[2,1] <- AIC(SST_full_mod) 
+SST_AIC[3,1] <- AIC(SST_half_lag_mod)
+SST_AIC[4,1] <- AIC(SST_full_lag_mod) 
+SST_AIC[,2] <- SST_AIC[,1] - min(SST_AIC[,1]) # calculate delta AIC
+SST_AIC[,3] <- exp(-0.5*SST_AIC[,2])/(sum(exp(-0.5*SST_AIC[,2]))) # calculate model weights
+colnames(SST_AIC) <- c("AIC", "deltaAIC", "model_weights")
+rownames(SST_AIC) <- c("half", "full", "half_lag", "full_lag")
+print(SST_AIC)
+```
+The half SST model has more support.
+
+
+## NPGO
+```{r NPGO}
+NPGOraw <- read_csv(here("data", "covariates", "cciea_OC_NPGO_712b_5843_9069.csv"))
+
+## are there NAs in the data?
+sum(is.na(NPGOraw$NPGO)) # only the first row, which does not contain data
+
+## Scenario 1: "half" dataset from Jan-June in time t
+NPGO_half <- NPGOraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time),
+         Month = month(time)) %>%
+  mutate(npgo = as.numeric(NPGO)) %>%
+  filter(Month == 1 | Month == 2 | Month == 3 |Month == 4 | Month == 5 | Month == 6) %>%
+  group_by(Year) %>%
+  summarise(NPGO = mean(npgo, na.rm = TRUE)) %>%
+  dplyr::select(Year, NPGO) %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  mutate(NPGO_half = scale(NPGO)) %>%
+  arrange(Year) %>%
+  dplyr::select(Year, NPGO_half)
+
+## Scenario 2: "full" dataset from July in time t-1 to June in time t
+NPGO_full <- NPGOraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time),
+         Month = month(time)) %>%
+  mutate(npgo = as.numeric(NPGO),
+         split_year = ifelse(Month == 7 | Month == 8 | Month == 9 | Month == 10 | Month == 11 | Month == 12,
+                             Year + 1, Year)) %>%
+  rename(Year = split_year, true_year = Year) %>%
+  group_by(Year) %>%
+  summarise(NPGO = mean(npgo, na.rm = TRUE)) %>%
+  dplyr::select(Year, NPGO) %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  mutate(NPGO_full = scale(NPGO)) %>%
+  arrange(Year) %>%
+  dplyr::select(Year, NPGO_full)
+
+## Scenario 3: "half_lag" dataset from Jan-June in time t-1
+NPGO_half_lag <- NPGOraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time),
+         Month = month(time)) %>%
+  mutate(npgo = as.numeric(NPGO)) %>%
+  filter(Month == 1 | Month == 2 | Month == 3 |Month == 4 | Month == 5 | Month == 6) %>%
+  mutate(Year = Year + 1) %>%
+  group_by(Year) %>%
+  summarise(NPGO = mean(npgo, na.rm = TRUE)) %>%
+  dplyr::select(Year, NPGO) %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  mutate(NPGO_half_lag = scale(NPGO)) %>%
+  arrange(Year) %>%
+  dplyr::select(Year, NPGO_half_lag)
+
+## Scenario 4: "full_lag" dataset from July in time t-2 to June in time t-1
+NPGO_full_lag <- NPGOraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time),
+         Month = month(time)) %>%
+  mutate(npgo = as.numeric(NPGO),
+         split_year = ifelse(Month == 7 | Month == 8 | Month == 9 | Month == 10 | Month == 11 | Month == 12,
+                             Year + 1, Year)) %>%
+  rename(Year = split_year, true_year = Year) %>%
+  mutate(Year = Year + 1) %>%
+  group_by(Year) %>%
+  summarise(NPGO = mean(npgo, na.rm = TRUE)) %>%
+  dplyr::select(Year, NPGO) %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  mutate(NPGO_full_lag = scale(NPGO)) %>%
+  arrange(Year) %>%
+  dplyr::select(Year, NPGO_full_lag)
+
+## join datasets together
+NPGO1 <- full_join(NPGO_half, NPGO_full, by = "Year")
+NPGO2 <- full_join(NPGO1, NPGO_half_lag, by = "Year")
+NPGO3 <- full_join(NPGO2, NPGO_full_lag, by = "Year")
+
+## join with egg size data
+NPGO_df <- left_join(egg, NPGO3, by = "Year")
+  
+## run models
+NPGO_half_mod <- lm(Size ~ NPGO_half, data = NPGO_df)
+NPGO_full_mod <- lm(Size ~ NPGO_full, data = NPGO_df)
+NPGO_half_lag_mod <- lm(Size ~ NPGO_half_lag, data = NPGO_df)
+NPGO_full_lag_mod <- lm(Size ~ NPGO_full_lag, data = NPGO_df)
+
+## Model selection table
+NPGO_AIC <- matrix(NA, nrow = 4, ncol = 3) # 4 rows for 6 top models
+NPGO_AIC[1,1] <- AIC(NPGO_half_mod) 
+NPGO_AIC[2,1] <- AIC(NPGO_full_mod) 
+NPGO_AIC[3,1] <- AIC(NPGO_half_lag_mod)
+NPGO_AIC[4,1] <- AIC(NPGO_full_lag_mod) 
+NPGO_AIC[,2] <- NPGO_AIC[,1] - min(NPGO_AIC[,1]) # calculate delta AIC
+NPGO_AIC[,3] <- exp(-0.5*NPGO_AIC[,2])/(sum(exp(-0.5*NPGO_AIC[,2]))) # calculate model weights
+colnames(NPGO_AIC) <- c("AIC", "deltaAIC", "model_weights")
+rownames(NPGO_AIC) <- c("half", "full", "half_lag", "full_lag")
+print(NPGO_AIC)
+```
+The half NPGO model has the most support. 
+
+
+## PDO
+```{r PDO}
+PDOraw <- read_csv(here("data", "covariates", "cciea_OC_PDO_712b_5843_9069.csv"))
+
+## are there NAs in the data?
+sum(is.na(PDOraw$PDO)) # only the first row, which does not contain data
+
+## Scenario 1: "half" dataset from Jan-June in time t
+PDO_half <- PDOraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time),
+         Month = month(time)) %>%
+  mutate(pdo = as.numeric(PDO)) %>%
+  filter(Month == 1 | Month == 2 | Month == 3 |Month == 4 | Month == 5 | Month == 6) %>%
+  group_by(Year) %>%
+  summarise(PDO = mean(pdo, na.rm = TRUE)) %>%
+  dplyr::select(Year, PDO) %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  mutate(PDO_half = scale(PDO)) %>%
+  arrange(Year) %>%
+  dplyr::select(Year, PDO_half)
+
+## Scenario 2: "full" dataset from July in time t-1 to June in time t
+PDO_full <- PDOraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time),
+         Month = month(time)) %>%
+  mutate(pdo = as.numeric(PDO),
+         split_year = ifelse(Month == 7 | Month == 8 | Month == 9 | Month == 10 | Month == 11 | Month == 12,
+                             Year + 1, Year)) %>%
+  rename(Year = split_year, true_year = Year) %>%
+  group_by(Year) %>%
+  summarise(PDO = mean(pdo, na.rm = TRUE)) %>%
+  dplyr::select(Year, PDO) %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  mutate(PDO_full = scale(PDO)) %>%
+  arrange(Year) %>%
+  dplyr::select(Year, PDO_full)
+
+## Scenario 3: "half_lag" dataset from Jan-June in time t-1
+PDO_half_lag <- PDOraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time),
+         Month = month(time)) %>%
+  mutate(pdo = as.numeric(PDO)) %>%
+  filter(Month == 1 | Month == 2 | Month == 3 |Month == 4 | Month == 5 | Month == 6) %>%
+  mutate(Year = Year + 1) %>%
+  group_by(Year) %>%
+  summarise(PDO = mean(pdo, na.rm = TRUE)) %>%
+  dplyr::select(Year, PDO) %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  mutate(PDO_half_lag = scale(PDO)) %>%
+  arrange(Year) %>%
+  dplyr::select(Year, PDO_half_lag)
+
+## Scenario 4: "full_lag" dataset from July in time t-2 to June in time t-1
+PDO_full_lag <- PDOraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time),
+         Month = month(time)) %>%
+  mutate(pdo = as.numeric(PDO),
+         split_year = ifelse(Month == 7 | Month == 8 | Month == 9 | Month == 10 | Month == 11 | Month == 12,
+                             Year + 1, Year)) %>%
+  rename(Year = split_year, true_year = Year) %>%
+  mutate(Year = Year + 1) %>%
+  group_by(Year) %>%
+  summarise(PDO = mean(pdo, na.rm = TRUE)) %>%
+  dplyr::select(Year, PDO) %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  mutate(PDO_full_lag = scale(PDO)) %>%
+  arrange(Year) %>%
+  dplyr::select(Year, PDO_full_lag)
+
+## join datasets together
+PDO1 <- full_join(PDO_half, PDO_full, by = "Year")
+PDO2 <- full_join(PDO1, PDO_half_lag, by = "Year")
+PDO3 <- full_join(PDO2, PDO_full_lag, by = "Year")
+
+## join with egg size data
+PDO_df <- left_join(egg, PDO3, by = "Year")
+  
+## run models
+PDO_half_mod <- lm(Size ~ PDO_half, data = PDO_df)
+PDO_full_mod <- lm(Size ~ PDO_full, data = PDO_df)
+PDO_half_lag_mod <- lm(Size ~ PDO_half_lag, data = PDO_df)
+PDO_full_lag_mod <- lm(Size ~ PDO_full_lag, data = PDO_df)
+
+## Model selection table
+PDO_AIC <- matrix(NA, nrow = 4, ncol = 3) # 4 rows for 6 top models
+PDO_AIC[1,1] <- AIC(PDO_half_mod) 
+PDO_AIC[2,1] <- AIC(PDO_full_mod) 
+PDO_AIC[3,1] <- AIC(PDO_half_lag_mod)
+PDO_AIC[4,1] <- AIC(PDO_full_lag_mod) 
+PDO_AIC[,2] <- PDO_AIC[,1] - min(PDO_AIC[,1]) # calculate delta AIC
+PDO_AIC[,3] <- exp(-0.5*PDO_AIC[,2])/(sum(exp(-0.5*PDO_AIC[,2]))) # calculate model weights
+colnames(PDO_AIC) <- c("AIC", "deltaAIC", "model_weights")
+rownames(PDO_AIC) <- c("half", "full", "half_lag", "full_lag")
+print(PDO_AIC)
+```
+The PDO half_lag has more support. 
+
+
+## ONI
+```{r ONI1}
+ONIraw <- read_csv(here("data", "covariates", "cciea_OC_ONI_712b_5843_9069.csv"))
+
+## are there NAs in the data?
+sum(is.na(ONIraw$ONI)) # only the first row, which does not contain data
+
+## Scenario 1: "half" dataset from Jan-June in time t
+ONI_half <- ONIraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time),
+         Month = month(time)) %>%
+  mutate(oni = as.numeric(ONI)) %>%
+  filter(Month == 1 | Month == 2 | Month == 3 |Month == 4 | Month == 5 | Month == 6) %>%
+  group_by(Year) %>%
+  summarise(ONI = mean(oni, na.rm = TRUE)) %>%
+  dplyr::select(Year, ONI) %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  mutate(ONI_half = scale(ONI)) %>%
+  arrange(Year) %>%
+  dplyr::select(Year, ONI_half)
+
+## Scenario 2: "full" dataset from July in time t-1 to June in time t
+ONI_full <- ONIraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time),
+         Month = month(time)) %>%
+  mutate(oni = as.numeric(ONI),
+         split_year = ifelse(Month == 7 | Month == 8 | Month == 9 | Month == 10 | Month == 11 | Month == 12,
+                             Year + 1, Year)) %>%
+  rename(Year = split_year, true_year = Year) %>%
+  group_by(Year) %>%
+  summarise(ONI = mean(oni, na.rm = TRUE)) %>%
+  dplyr::select(Year, ONI) %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  mutate(ONI_full = scale(ONI)) %>%
+  arrange(Year) %>%
+  dplyr::select(Year, ONI_full)
+
+## Scenario 3: "half_lag" dataset from Jan-June in time t-1
+ONI_half_lag <- ONIraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time),
+         Month = month(time)) %>%
+  mutate(oni = as.numeric(ONI)) %>%
+  filter(Month == 1 | Month == 2 | Month == 3 |Month == 4 | Month == 5 | Month == 6) %>%
+  mutate(Year = Year + 1) %>%
+  group_by(Year) %>%
+  summarise(ONI = mean(oni, na.rm = TRUE)) %>%
+  dplyr::select(Year, ONI) %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  mutate(ONI_half_lag = scale(ONI)) %>%
+  arrange(Year) %>%
+  dplyr::select(Year, ONI_half_lag)
+
+## Scenario 4: "full_lag" dataset from July in time t-2 to June in time t-1
+ONI_full_lag <- ONIraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time),
+         Month = month(time)) %>%
+  mutate(oni = as.numeric(ONI),
+         split_year = ifelse(Month == 7 | Month == 8 | Month == 9 | Month == 10 | Month == 11 | Month == 12,
+                             Year + 1, Year)) %>%
+  rename(Year = split_year, true_year = Year) %>%
+  mutate(Year = Year + 1) %>%
+  group_by(Year) %>%
+  summarise(ONI = mean(oni, na.rm = TRUE)) %>%
+  dplyr::select(Year, ONI) %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  mutate(ONI_full_lag = scale(ONI)) %>%
+  arrange(Year) %>%
+  dplyr::select(Year, ONI_full_lag)
+
+## join datasets together
+ONI1 <- full_join(ONI_half, ONI_full, by = "Year")
+ONI2 <- full_join(ONI1, ONI_half_lag, by = "Year")
+ONI3 <- full_join(ONI2, ONI_full_lag, by = "Year")
+
+## join with egg size data
+ONI_df <- left_join(egg, ONI3, by = "Year")
+  
+## run models
+ONI_half_mod <- lm(Size ~ ONI_half, data = ONI_df)
+ONI_full_mod <- lm(Size ~ ONI_full, data = ONI_df)
+ONI_half_lag_mod <- lm(Size ~ ONI_half_lag, data = ONI_df)
+ONI_full_lag_mod <- lm(Size ~ ONI_full_lag, data = ONI_df)
+
+## Model selection table
+ONI_AIC <- matrix(NA, nrow = 4, ncol = 3) # 4 rows for 6 top models
+ONI_AIC[1,1] <- AIC(ONI_half_mod) 
+ONI_AIC[2,1] <- AIC(ONI_full_mod) 
+ONI_AIC[3,1] <- AIC(ONI_half_lag_mod)
+ONI_AIC[4,1] <- AIC(ONI_full_lag_mod) 
+ONI_AIC[,2] <- ONI_AIC[,1] - min(ONI_AIC[,1]) # calculate delta AIC
+ONI_AIC[,3] <- exp(-0.5*ONI_AIC[,2])/(sum(exp(-0.5*ONI_AIC[,2]))) # calculate model weights
+colnames(ONI_AIC) <- c("AIC", "deltaAIC", "model_weights")
+rownames(ONI_AIC) <- c("half", "full", "half_lag", "full_lag")
+print(ONI_AIC)
+```
+There is equal support for the ONI half_lag (AIC = 10704.14) and full_lag model (AIC = 10705.02).
+

@@ -73,3 +73,7 @@ main
 ## output map
 ggsave(filename = "results/map.png", plot = main)
 
+#============= Map with bathymetry
+library(marmap)
+
+ci.bath <- get
