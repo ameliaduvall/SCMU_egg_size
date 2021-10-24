@@ -32,7 +32,7 @@ covars <- read.csv(here("data", "covariates", "covars.csv"))
 
 ## join covariate data with egg size data 
 SCMUdf <- left_join(egg, covars, by = "Year") %>% # join by year
-  filter(TrueOrder == TRUE) %>% # select eggs order known only
+  filter(TrueOrder == TRUE) %>% # select eggs with order known only
   filter(Size > 1210) %>% # remove the outliers
   dplyr::select(Year, Observer, Plot, Size, EggOrder, ANCHL, BEUTI, NPGO, ONI, PDO, SST) 
 ```

@@ -1,11 +1,11 @@
 ---
-title: "Single Covariate Model Selection for Scripps's Murrelet Linear Mixed Model"
+title: "Covariate data for Scripps's Murrelet egg size model"
 author: "Amelia J. DuVall & Marcela Todd Zaragoza"
 date: "5/16/2021"
 output: pdf_document
 ---
 
-```{r setup, include=FALSE}
+```{r setup, message = FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
 ## load libraries
@@ -15,202 +15,44 @@ library(janitor)
 library(ggplot2)
 library(lubridate)
 library(viridis)
+library(Hmisc)
 library(stats)
 library(faraway)
 library(sjPlot)
+library(corrplot)
 ```
 
 This is `r paste0("v.", (Sys.Date()))`
 
 # Introduction
-The covariates we selected to test the relationship between Scripps's Murrelet egg size and oceanographic conditions are collected at various temporal and spatial scales. In addition, the effects of some oceanographic conditions may take time to manifest in terms of prey availability for murrelets during the breeding season and other impacts that may affect egg size. Given the differences in spatial and temporal extent of oceanographic variables and their impacts on seabirds, we tested all environmental covariates for the Scripps's Murrelet egg size model (see SCMU_model.Rmd) under four scenarios:
-1. Monthly averages for January to June in year $t$ (6 months) to encompass pre-breeding and breeding season ("half").
-2. Monthly averages for July in year $t-1$ to June in year $t$ (12 months) to encompass the entire post-breeding, pre-breeding, and breeding season ("full").
-3. Monthly averages for January to June in year $t-1$ (6 months) to encompass pre-breeding and breeding season in the previous year ("half_lag").
-4. Monthly averages for July in year $t-2$ to June in year $t-1$ (12 months) to encompass the entire post-breeding, pre-breeding, and breeding season in the previous year ("full_lag").
+This document details steps taken to compile and clean covariate data for a linear mixed model on Scripps's Murrelet (*Synthliboramphus scrippsi*) egg size at Santa Barbara Island within Channel Islands National Park from 2009-2017. Oceanographic indices were pulled from [NOAA'S California Current Integrated Ecosystem Assessment Program (CCIEA)](https://www.integratedecosystemassessment.noaa.gov/regions/california-current/cc-about); data descriptions are provided by CCIEA. Covariates are grouped by spatial scale: local, regional, and international. We also tested for correlation among predictors. Given the differences in spatial and temporal extent of oceanographic variables and their impacts on seabirds, we tested all environmental covariates for the Scripps's Murrelet egg size model (see SCMU_model.Rmd) under four scenarios: \
+1. Monthly averages for January to June in year $t$ (6 months) to encompass pre-breeding and breeding season ("half"). \
+2. Monthly averages for July in year $t-1$ to June in year $t$ (12 months) to encompass the entire post-breeding, pre-breeding, and breeding season ("full"). \
+3. Monthly averages for January to June in year $t-1$ (6 months) to encompass pre-breeding and breeding season in the previous year ("half_lag"). \
+4. Monthly averages for July in year $t-2$ to June in year $t-1$ (12 months) to encompass the entire post-breeding, pre-breeding, and breeding season in the previous year ("full_lag"). \
 
-We tested 6 covariates: 
-1. Larval anchovy (ANCHL) - This covariate is only available at a yearly sampling rate. Therefore, we tested this variable under two scenarios: 1) yearly value in time $t$, and 2) yearly value in time $t-1$. 
+We tested 6 covariates:  
+1. Larval Anchovy (ANCHL)   
 2. Biologically Effective Upwelling Transport Index (BEUTI)  
-3. Sea Surface Temperature (SST)  
-4. North Pacific Gyre Oscillation Index (NPGO)  
+3. Sea Surface Temperature (SST)   
+4. North Pacific Gyre Oscillation Index (NPGO)    
 5. Pacific Decadal Oscillation Index (PDO)  
 6. Oceanic Nino Index (ONI)  
 
-See SCMU_egg_covariates.Rmd for more information on covariate sourcing.  
-
+  
 ```{r df}
 ## load egg size data
 egg <- read.csv(here("data", "SCMU_egg_data.csv"))%>%
-  filter(TrueOrder == TRUE) %>% # egg order known only
-  select(Year, Observer, Plot, Size, EggOrder)
+  filter(TrueOrder == TRUE) %>% # select eggs with order known only
+  dplyr::select(Year, Observer, Plot, Size, EggOrder)
 ```
 
 # Oceanographic Indices
 
-## ANCHL
-ANCHL sampling data is only available at a yearly sampling interval. 
-```{r anchovyl}
-## load data
-ANCHLraw  <- read.csv(here("data", "covariates", "cciea_EI_FBS_2020_a29e_1fd0_409d.csv"), na.strings = "NaN")
+## Local indices
 
-## are there NAs in the data?
-sum(is.na(ANCHLraw$relative_abundance))
-
-## create dataset from 2009-2017 for values in year t 
-ANCHL_full <- ANCHLraw %>%
-  slice(-1) %>%
-  mutate(time = ymd_hms(time)) %>%
-  mutate(Year = year(time)) %>%
-  mutate(ANCHL = as.numeric(relative_abundance)) %>%
-  arrange(Year) %>%
-  dplyr::select(Year, ANCHL) %>%
-  filter(Year >= 2009 & Year <= 2017) %>%
-  mutate(ANCHL_full = scale(ANCHL)) %>%
-  dplyr::select(Year, ANCHL_full)
-
-## create dataset from 2008-2016 for values in year t-1 
-ANCHL_full_lag <- ANCHLraw %>%
-  slice(-1) %>%
-  mutate(time = ymd_hms(time)) %>%
-  mutate(Year = year(time)) %>%
-  mutate(ANCHL = as.numeric(relative_abundance)) %>%
-  arrange(Year) %>%
-  dplyr::select(Year, ANCHL) %>%
-  filter(Year >= 2008 & Year <= 2016) %>%
-  mutate(TrueYear = Year,
-         Year = TrueYear + 1,
-         ANCHL_full_lag = scale(ANCHL)) %>%
-  dplyr::select(Year, ANCHL_full_lag)
-
-## join no-lag and lag datasets
-ANCHL1 <- full_join(ANCHL_full, ANCHL_full_lag, by = "Year")
-
-## join with egg size data
-ANCHLdf1 <- left_join(egg, ANCHL1, by = "Year")
-  
-## run models
-ANCHL_full_mod <- lm(Size ~ ANCHL_full , data = ANCHLdf1) 
-ANCHL_full_lag_mod <- lm(Size ~ ANCHL_full_lag, data = ANCHLdf1)
-
-## Model selection table
-ANHCL_AIC <- matrix(NA, nrow = 2, ncol = 3) 
-ANHCL_AIC[1,1] <- AIC(ANCHL_full_mod) 
-ANHCL_AIC[2,1] <- AIC(ANCHL_full_lag_mod) 
-ANHCL_AIC[,2] <- ANHCL_AIC[,1] - min(ANHCL_AIC[,1]) # calculate delta AIC
-ANHCL_AIC[,3] <- exp(-0.5*ANHCL_AIC[,2])/(sum(exp(-0.5*ANHCL_AIC[,2]))) # calculate model weights
-colnames(ANHCL_AIC) <- c("AIC", "deltaAIC", "model_weights")
-rownames(ANHCL_AIC) <- c("full", "full_lag")
-print(ANHCL_AIC)
-```
-There is support to use the ANCHL data in year $t$ since the lagged data is delta AIC > 2. 
-
-## BEUTI
-```{r BEUTI1}
-BEUTIraw <- read_csv(here("data", "covariates", "cciea_OC_BEUTI_784c_ef9f_af6f.csv"))
-
-## are there NAs in the data?
-sum(is.na(BEUTIraw$beuti))
-
-## Scenario 1: "half" dataset from Jan-June in time t
-BEUTI_half <- BEUTIraw %>%
-  slice(-1) %>%
-  mutate(time = ymd_hms(time)) %>%
-  mutate(Year = year(time),
-         Month = month(time)) %>%
-  mutate(beuti = as.numeric(beuti)) %>%
-  filter(Month == 1 | Month == 2 | Month == 3 |Month == 4 | Month == 5 | Month == 6) %>%
-  group_by(Year) %>%
-  summarise(BEUTI = mean(beuti, na.rm = TRUE)) %>%
-  dplyr::select(Year, BEUTI) %>%
-  filter(Year >= 2009 & Year <= 2017) %>%
-  mutate(BEUTI_half = scale(BEUTI)) %>%
-  arrange(Year) %>%
-  dplyr::select(Year, BEUTI_half)
-
-## Scenario 2: "full" dataset from July in time t-1 to June in time t
-BEUTI_full <- BEUTIraw %>%
-  slice(-1) %>%
-  mutate(time = ymd_hms(time)) %>%
-  mutate(Year = year(time),
-         Month = month(time)) %>%
-  mutate(beuti = as.numeric(beuti),
-         split_year = ifelse(Month == 7 | Month == 8 | Month == 9 | Month == 10 | Month == 11 | Month == 12,
-                             Year + 1, Year)) %>%
-  rename(Year = split_year, true_year = Year) %>%
-  group_by(Year) %>%
-  summarise(BEUTI = mean(beuti, na.rm = TRUE)) %>%
-  dplyr::select(Year, BEUTI) %>%
-  filter(Year >= 2009 & Year <= 2017) %>%
-  mutate(BEUTI_full = scale(BEUTI)) %>%
-  arrange(Year) %>%
-  dplyr::select(Year, BEUTI_full)
-
-## Scenario 3: "half_lag" dataset from Jan-June in time t-1
-BEUTI_half_lag <- BEUTIraw %>%
-  slice(-1) %>%
-  mutate(time = ymd_hms(time)) %>%
-  mutate(Year = year(time),
-         Month = month(time)) %>%
-  mutate(beuti = as.numeric(beuti)) %>%
-  filter(Month == 1 | Month == 2 | Month == 3 |Month == 4 | Month == 5 | Month == 6) %>%
-  mutate(Year = Year + 1) %>%
-  group_by(Year) %>%
-  summarise(BEUTI = mean(beuti, na.rm = TRUE)) %>%
-  dplyr::select(Year, BEUTI) %>%
-  filter(Year >= 2009 & Year <= 2017) %>%
-  mutate(BEUTI_half_lag = scale(BEUTI)) %>%
-  arrange(Year) %>%
-  dplyr::select(Year, BEUTI_half_lag)
-
-## Scenario 4: "full_lag" dataset from July in time t-2 to June in time t-1
-BEUTI_full_lag <- BEUTIraw %>%
-  slice(-1) %>%
-  mutate(time = ymd_hms(time)) %>%
-  mutate(Year = year(time),
-         Month = month(time)) %>%
-  mutate(beuti = as.numeric(beuti),
-         split_year = ifelse(Month == 7 | Month == 8 | Month == 9 | Month == 10 | Month == 11 | Month == 12,
-                             Year + 1, Year)) %>%
-  rename(Year = split_year, true_year = Year) %>%
-  mutate(Year = Year + 1) %>%
-  group_by(Year) %>%
-  summarise(BEUTI = mean(beuti, na.rm = TRUE)) %>%
-  dplyr::select(Year, BEUTI) %>%
-  filter(Year >= 2009 & Year <= 2017) %>%
-  mutate(BEUTI_full_lag = scale(BEUTI)) %>%
-  arrange(Year) %>%
-  dplyr::select(Year, BEUTI_full_lag)
-
-## join datasets together
-BEUTI1 <- full_join(BEUTI_half, BEUTI_full, by = "Year")
-BEUTI2 <- full_join(BEUTI1, BEUTI_half_lag, by = "Year")
-BEUTI3 <- full_join(BEUTI2, BEUTI_full_lag, by = "Year")
-
-## join with egg size data
-BEUTI_df <- left_join(egg, BEUTI3, by = "Year")
-  
-## run models
-BEUTI_half_mod <- lm(Size ~ BEUTI_half, data = BEUTI_df)
-BEUTI_full_mod <- lm(Size ~ BEUTI_full, data = BEUTI_df)
-BEUTI_half_lag_mod <- lm(Size ~ BEUTI_half_lag, data = BEUTI_df)
-BEUTI_full_lag_mod <- lm(Size ~ BEUTI_full_lag, data = BEUTI_df)
-
-## Model selection table
-BEUTI_AIC <- matrix(NA, nrow = 4, ncol = 3) # 4 rows for 6 top models
-BEUTI_AIC[1,1] <- AIC(BEUTI_half_mod) 
-BEUTI_AIC[2,1] <- AIC(BEUTI_full_mod) 
-BEUTI_AIC[3,1] <- AIC(BEUTI_half_lag_mod)
-BEUTI_AIC[4,1] <- AIC(BEUTI_full_lag_mod) 
-BEUTI_AIC[,2] <- BEUTI_AIC[,1] - min(BEUTI_AIC[,1]) # calculate delta AIC
-BEUTI_AIC[,3] <- exp(-0.5*BEUTI_AIC[,2])/(sum(exp(-0.5*BEUTI_AIC[,2]))) # calculate model weights
-colnames(BEUTI_AIC) <- c("AIC", "deltaAIC", "model_weights")
-rownames(BEUTI_AIC) <- c("half", "full", "half_lag", "full_lag")
-print(BEUTI_AIC)
-```
-The BEUTI full_lag model has more support. 
-
-## SST
+### Sea Surface Temperature
+Sea surface temperature was provided by [NOAA buoy station 46025](https://www.ndbc.noaa.gov/station_page.php?station=46025). The data description can be found [here](https://www.ndbc.noaa.gov/measdes.shtml). 
 ```{r SST}
 SSTraw <- read_csv(here("data", "covariates", "cciea_OC_SST3_91cf_d165_213f-46025.csv"))
 
@@ -315,8 +157,176 @@ print(SST_AIC)
 ```
 The half SST model has more support.
 
+## Regional indices
 
-## NPGO
+### Larval Anchovy (ANCHL)
+Derived from spring California Cooperative Oceanic Fisheries Investigations (CalCOFI) surveys. Larval fish data summed across all stations of the CalCOFI survey in spring (units are in number under 10 sq. m of surface area; ln(abundance+1); CalCOFI lines 76.7 - 93.3; stations 28.0 - 120.0). Sampling data is only available at a yearly sampling interval. Therefore, we tested this variable under two scenarios: 1) yearly value in time $t$, and 2) yearly value in time $t-1$. 
+```{r anchl}
+## load data
+ANCHLraw  <- read.csv(here("data", "covariates", "cciea_EI_FBS_2020_a29e_1fd0_409d.csv"), na.strings = "NaN")
+
+## are there NAs in the data?
+sum(is.na(ANCHLraw$relative_abundance))
+
+## create dataset from 2009-2017 for values in year t 
+ANCHL_full <- ANCHLraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time)) %>%
+  mutate(ANCHL = as.numeric(relative_abundance)) %>%
+  arrange(Year) %>%
+  dplyr::select(Year, ANCHL) %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  mutate(ANCHL_full = scale(ANCHL)) %>%
+  dplyr::select(Year, ANCHL_full)
+
+## create dataset from 2008-2016 for values in year t-1 
+ANCHL_full_lag <- ANCHLraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time)) %>%
+  mutate(ANCHL = as.numeric(relative_abundance)) %>%
+  arrange(Year) %>%
+  dplyr::select(Year, ANCHL) %>%
+  filter(Year >= 2008 & Year <= 2016) %>%
+  mutate(TrueYear = Year,
+         Year = TrueYear + 1,
+         ANCHL_full_lag = scale(ANCHL)) %>%
+  dplyr::select(Year, ANCHL_full_lag)
+
+## join no-lag and lag datasets
+ANCHL1 <- full_join(ANCHL_full, ANCHL_full_lag, by = "Year")
+
+## join with egg size data
+ANCHLdf1 <- left_join(egg, ANCHL1, by = "Year")
+  
+## run models
+ANCHL_full_mod <- lm(Size ~ ANCHL_full , data = ANCHLdf1) 
+ANCHL_full_lag_mod <- lm(Size ~ ANCHL_full_lag, data = ANCHLdf1)
+
+## Model selection table
+ANHCL_AIC <- matrix(NA, nrow = 2, ncol = 3) 
+ANHCL_AIC[1,1] <- AIC(ANCHL_full_mod) 
+ANHCL_AIC[2,1] <- AIC(ANCHL_full_lag_mod) 
+ANHCL_AIC[,2] <- ANHCL_AIC[,1] - min(ANHCL_AIC[,1]) # calculate delta AIC
+ANHCL_AIC[,3] <- exp(-0.5*ANHCL_AIC[,2])/(sum(exp(-0.5*ANHCL_AIC[,2]))) # calculate model weights
+colnames(ANHCL_AIC) <- c("AIC", "deltaAIC", "model_weights")
+rownames(ANHCL_AIC) <- c("full", "full_lag")
+print(ANHCL_AIC)
+```
+There is support to use the ANCHL data in year $t$ since the lagged data is delta AIC > 2. 
+
+### Biologically Effective Upwelling Transport Index (BEUTI)
+Summary: BEUTI is a new upwelling index that leverages state-of-the-art ocean models as well as satellite and in situ data to improve upon historically available upwelling indices for the U.S. west coast. BEUTI provides estimates of vertical nitrate flux near the coast (i.e., the amount of nitrate upwelled/downwelled), which may be more relevant than upwelling strength when considering some biological responses. See Jacox, M. G., C. A. Edwards, E. L. Hazen, and S. J. Bograd (2018) Coastal upwelling revisited: Ekman, Bakun, and improved upwelling indices for the U.S. west coast. Journal of Geophysical Research, doi:10.1029/2018JC014187.
+
+```{r BEUTI}
+BEUTIraw <- read_csv(here("data", "covariates", "cciea_OC_BEUTI_784c_ef9f_af6f.csv"))
+
+## are there NAs in the data?
+sum(is.na(BEUTIraw$beuti))
+
+## Scenario 1: "half" dataset from Jan-June in time t
+BEUTI_half <- BEUTIraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time),
+         Month = month(time)) %>%
+  mutate(beuti = as.numeric(beuti)) %>%
+  filter(Month == 1 | Month == 2 | Month == 3 |Month == 4 | Month == 5 | Month == 6) %>%
+  group_by(Year) %>%
+  summarise(BEUTI = mean(beuti, na.rm = TRUE)) %>%
+  dplyr::select(Year, BEUTI) %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  mutate(BEUTI_half = scale(BEUTI)) %>%
+  arrange(Year) %>%
+  dplyr::select(Year, BEUTI_half)
+
+## Scenario 2: "full" dataset from July in time t-1 to June in time t
+BEUTI_full <- BEUTIraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time),
+         Month = month(time)) %>%
+  mutate(beuti = as.numeric(beuti),
+         split_year = ifelse(Month == 7 | Month == 8 | Month == 9 | Month == 10 | Month == 11 | Month == 12,
+                             Year + 1, Year)) %>%
+  rename(Year = split_year, true_year = Year) %>%
+  group_by(Year) %>%
+  summarise(BEUTI = mean(beuti, na.rm = TRUE)) %>%
+  dplyr::select(Year, BEUTI) %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  mutate(BEUTI_full = scale(BEUTI)) %>%
+  arrange(Year) %>%
+  dplyr::select(Year, BEUTI_full)
+
+## Scenario 3: "half_lag" dataset from Jan-June in time t-1
+BEUTI_half_lag <- BEUTIraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time),
+         Month = month(time)) %>%
+  mutate(beuti = as.numeric(beuti)) %>%
+  filter(Month == 1 | Month == 2 | Month == 3 |Month == 4 | Month == 5 | Month == 6) %>%
+  mutate(Year = Year + 1) %>%
+  group_by(Year) %>%
+  summarise(BEUTI = mean(beuti, na.rm = TRUE)) %>%
+  dplyr::select(Year, BEUTI) %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  mutate(BEUTI_half_lag = scale(BEUTI)) %>%
+  arrange(Year) %>%
+  dplyr::select(Year, BEUTI_half_lag)
+
+## Scenario 4: "full_lag" dataset from July in time t-2 to June in time t-1
+BEUTI_full_lag <- BEUTIraw %>%
+  slice(-1) %>%
+  mutate(time = ymd_hms(time)) %>%
+  mutate(Year = year(time),
+         Month = month(time)) %>%
+  mutate(beuti = as.numeric(beuti),
+         split_year = ifelse(Month == 7 | Month == 8 | Month == 9 | Month == 10 | Month == 11 | Month == 12,
+                             Year + 1, Year)) %>%
+  rename(Year = split_year, true_year = Year) %>%
+  mutate(Year = Year + 1) %>%
+  group_by(Year) %>%
+  summarise(BEUTI = mean(beuti, na.rm = TRUE)) %>%
+  dplyr::select(Year, BEUTI) %>%
+  filter(Year >= 2009 & Year <= 2017) %>%
+  mutate(BEUTI_full_lag = scale(BEUTI)) %>%
+  arrange(Year) %>%
+  dplyr::select(Year, BEUTI_full_lag)
+
+## join datasets together
+BEUTI1 <- full_join(BEUTI_half, BEUTI_full, by = "Year")
+BEUTI2 <- full_join(BEUTI1, BEUTI_half_lag, by = "Year")
+BEUTI3 <- full_join(BEUTI2, BEUTI_full_lag, by = "Year")
+
+## join with egg size data
+BEUTI_df <- left_join(egg, BEUTI3, by = "Year")
+  
+## run models
+BEUTI_half_mod <- lm(Size ~ BEUTI_half, data = BEUTI_df)
+BEUTI_full_mod <- lm(Size ~ BEUTI_full, data = BEUTI_df)
+BEUTI_half_lag_mod <- lm(Size ~ BEUTI_half_lag, data = BEUTI_df)
+BEUTI_full_lag_mod <- lm(Size ~ BEUTI_full_lag, data = BEUTI_df)
+
+## Model selection table
+BEUTI_AIC <- matrix(NA, nrow = 4, ncol = 3) # 4 rows for 6 top models
+BEUTI_AIC[1,1] <- AIC(BEUTI_half_mod) 
+BEUTI_AIC[2,1] <- AIC(BEUTI_full_mod) 
+BEUTI_AIC[3,1] <- AIC(BEUTI_half_lag_mod)
+BEUTI_AIC[4,1] <- AIC(BEUTI_full_lag_mod) 
+BEUTI_AIC[,2] <- BEUTI_AIC[,1] - min(BEUTI_AIC[,1]) # calculate delta AIC
+BEUTI_AIC[,3] <- exp(-0.5*BEUTI_AIC[,2])/(sum(exp(-0.5*BEUTI_AIC[,2]))) # calculate model weights
+colnames(BEUTI_AIC) <- c("AIC", "deltaAIC", "model_weights")
+rownames(BEUTI_AIC) <- c("half", "full", "half_lag", "full_lag")
+print(BEUTI_AIC)
+```
+The BEUTI full_lag model has more support. 
+
+# International indices
+
+### North Pacific Gyre Oscillation Index (NPGO)
+Summary: The NPGO is calculated from an Empirical Orthogonal Function analysis of sea-surface height in the Northeast Pacific. The NPGO is the second dominant mode.
 ```{r NPGO}
 NPGOraw <- read_csv(here("data", "covariates", "cciea_OC_NPGO_712b_5843_9069.csv"))
 
@@ -422,7 +432,8 @@ print(NPGO_AIC)
 The half NPGO model has the most support. 
 
 
-## PDO
+### Pacific Decadal Oscillation Index (PDO)
+Summary: The PDO is calculated from an Empirical Orthogonal analysis of sea surface temperature anomalies in the North Pacific. The PDO is the first dominant mode. 
 ```{r PDO}
 PDOraw <- read_csv(here("data", "covariates", "cciea_OC_PDO_712b_5843_9069.csv"))
 
@@ -528,7 +539,8 @@ print(PDO_AIC)
 The PDO half_lag has more support. 
 
 
-## ONI
+### Oceanic Nino Index (ONI)
+Summary: The ONI is the 3 month running mean of sea surface temperature anomalies in the Nino 3.4 region.
 ```{r ONI1}
 ONIraw <- read_csv(here("data", "covariates", "cciea_OC_ONI_712b_5843_9069.csv"))
 
@@ -632,4 +644,73 @@ rownames(ONI_AIC) <- c("half", "full", "half_lag", "full_lag")
 print(ONI_AIC)
 ```
 There is equal support for the ONI half_lag (AIC = 10704.14) and full_lag model (AIC = 10705.02).
+
+# Correlation
+Check for correlation between the oceanographic indices (absolute value > 0.65). 
+```{r corr}
+## bind covars
+covars <- cbind(ANCHL_full[,2], BEUTI_full_lag[,2], NPGO_half[,2], ONI_half_lag[,2], PDO_half_lag[,2], SST_half[,2])
+colnames(covars) <- c("ANCHL", "BEUTI", "NPGO", "ONI", "PDO", "SST")
+
+## check for correlation between predictors (cutoff >0.65)
+cp <- as.data.frame((round(cor(covars, use="complete.obs"), 2)))
+
+## this function flattens your data in a particular way, used below
+flattenCorrMatrix <- function(cormat, pmat) {
+  ut <- upper.tri(cormat)
+  data.frame(
+    row = rownames(cormat)[row(cormat)[ut]],
+    column = rownames(cormat)[col(cormat)[ut]],
+    cor  =(cormat)[ut],
+    p = pmat[ut]
+  )
+}
+
+cor <- rcorr(as.matrix(covars))
+
+## create a new formatted df
+cor_vals <- flattenCorrMatrix(cor$r, cor$P) %>% arrange(cor)
+
+## plot
+corrplot(cor$r)
+```
+Positive correlations are displayed in blue and negative correlations in red color. Color intensity and the size of the circle are proportional to the correlation coefficients.  
+
+We selected +/- 0.65 as our cutoff for correlation. The following covariates should not be in the same model:
+1. ANCHL and NPGO (-0.68)
+2. ANCHL and ONI (0.66)
+3. ANCHL and PDO (0.72)
+4. BEUTI and ONI (-0.90)
+5. BEUTI and PDO (-0.85)
+6. NPGO and PDO (-0.67)
+7. NPGO and SST (-0.85)
+8. ONI and PDO (0.90)
+
+# Plot
+```{r plot}
+covarsplot <- covars %>%
+  mutate(year = 2009:2017) %>%
+  pivot_longer(cols = 1:6, names_to = "covariate", values_to = "value")
+
+ggplot(data = covarsplot, aes(x = year, y = value, color = covariate)) +
+  geom_line() +
+  facet_wrap(~covariate, nrow = 1) +
+  scale_color_viridis(discrete = TRUE) + 
+  ylim(c(-2.5, 2.5)) +
+  theme_minimal() + xlab("Year") + ylab("") +
+  scale_x_discrete(breaks = c(2009, 2013, 2017), limits = c(2009, 2013, 2017)) +
+  theme(legend.position = "none", 
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text.x = element_text(angle = 90),
+        panel.spacing = unit(2.5, "lines")) 
+```
+
+# Export out
+```{r export}
+finalcovars <- covars %>%
+  mutate(Year = 2009:2017) %>%
+  select(Year, everything())
+#write.csv(x = finalcovars, file = here("data", "covariates", "covars.csv"), row.names = FALSE) 
+```
 
