@@ -1,5 +1,5 @@
 ---
-title: "Covariates for Scripps's Murrelet Egg Size model"
+title: "Covariate data for Scripps's Murrelet egg size model"
 author: "Amelia J. DuVall & Marcela Todd"
 date: "4/01/2021"
 output: pdf_document
@@ -15,7 +15,6 @@ library(janitor)
 library(ggplot2)
 library(corrplot)
 library(lubridate)
-library(easypackages)
 library(viridis)
 library(Hmisc)
 ```
@@ -23,18 +22,14 @@ library(Hmisc)
 This is `r paste0("v.", (Sys.Date()))`
 
 # Introduction
-This document details steps taken to compile covariate data for a linear mixed model on Scripps's Murrelet (*Synthliboramphus scrippsi*) egg size at Santa Barbara Island within Channel Islands National Park from 2009-2017. At first, we decided to pull relevant covariates from January-June only because murrelets begin to arrive at the colony in January and clutch initiation extends from March to June (Murray et al. 1985). Later, we tested the support for temporally restricted data (e.g., covariates averaged by year for all 12 months versus data averaged across January-June only), as well as support for lagged and non-lagged covariates (see SCMU_lagged_covariates.Rmd). We selected final covariate data based on model selection via single covariate models. 
+This document details steps taken to compile and clean covariate data for a linear mixed model on Scripps's Murrelet (*Synthliboramphus scrippsi*) egg size at Santa Barbara Island within Channel Islands National Park from 2009-2017. Oceanographic indices were pulled from [NOAA'S California Current Integrated Ecosystem Assessment Program](https://www.integratedecosystemassessment.noaa.gov/regions/california-current/cc-). We also tested for correlation among predictors.
 
-# Potential Covariates
+# Covariate Data
 
-## Local oceanographic conditions
+## Local oceanographic indices
 
 ### Sea Surface Temperature
-Buoy 46025  
-NOAA buoy station 46025: https://www.ndbc.noaa.gov/station_page.php?station=46025  
-Historical data here: https://www.ndbc.noaa.gov/station_history.php?station=46025  
-Data descriptions here: https://www.ndbc.noaa.gov/measdes.shtml  
-Data pulled from: https://www.integratedecosystemassessment.noaa.gov/regions/california-current/cc-indicator-status-trends
+Sea surface temperature was provided by [NOAA buoy station 46025](https://www.ndbc.noaa.gov/station_page.php?station=46025). The data description can be found [here](https://www.ndbc.noaa.gov/measdes.shtml). Data was retrieved using [this](https://www.integratedecosystemassessment.noaa.gov/regions/california-current/cc-indicator-status-trends) link.
 
 ```{r sst}
 SSTraw <- read_csv(here("data", "covariates", "cciea_OC_SST3_91cf_d165_213f-46025.csv"))
@@ -54,101 +49,6 @@ SST <- SSTraw %>%
   mutate(SST = scale(SST)) %>%
   arrange(Year) %>%
   dplyr::select(Year, SST)
-
-# ## Averaged SST by year over 12 months and scaled (no lag)
-# SST <- SSTraw %>%
-#   slice(-1) %>%
-#   mutate(time = ymd_hms(time)) %>%
-#   mutate(Year = year(time),
-#          Month = month(time)) %>%
-#   mutate(sst = as.numeric(SST)) %>%
-#   group_by(Year) %>%
-#   summarise(SST = mean(sst, na.rm = TRUE)) %>%
-#   filter(Year >= 2009 & Year <= 2017) %>%
-#   mutate(SST = scale(SST)) %>% 
-#   arrange(Year) 
-
-# ## for January-June only
-# SST <- SSTraw %>%
-#   slice(-1) %>%
-#   mutate(time = ymd_hms(time)) %>%
-#   mutate(Year = year(time),
-#          Month = month(time)) %>%
-#   mutate(sst = as.numeric(SST)) %>%
-#   filter(Month == 1 | Month == 2 | Month == 3 |Month == 4 | Month == 5 | Month == 6) %>% 
-#   group_by(Year) %>%
-#   summarise(SST = mean(sst, na.rm = TRUE)) %>%
-#   dplyr::select(Year, SST) %>%
-#   filter(Year >= 2009 & Year <= 2017) %>%
-#   arrange(Year) %>%
-#   as_tibble()
-
-# ## load annual files
-# wx2009 <- read_csv(here("data", "covariates", "buoy_46025_2009_wx.csv"), na = c("999")) %>%
-#   slice(-c(1))  %>% 
-#   dplyr::select(1:4, 15)
-# wx2010 <- read_csv(here("data", "covariates", "buoy_46025_2010_wx.csv"), na = c("999")) %>%
-#   slice(-c(1)) %>% 
-#   dplyr::select(1:4, 15)
-# wx2011 <- read_csv(here("data", "covariates", "buoy_46025_2011_wx.csv"), na = c("999")) %>%
-#   slice(-c(1)) %>% 
-#   dplyr::select(1:4, 15)
-# wx2012 <- read_csv(here("data", "covariates", "buoy_46025_2012_wx.csv"), na = c("999")) %>%
-#   slice(-c(1)) %>% 
-#   dplyr::select(1:4, 15)
-# wx2013 <- read_csv(here("data", "covariates", "buoy_46025_2013_wx.csv"), na = c("999")) %>%
-#   slice(-c(1)) %>% 
-#   dplyr::select(1:4, 15)
-# wx2014 <- read_csv(here("data", "covariates", "buoy_46025_2014_wx.csv"), na = c("999")) %>%
-#   slice(-c(1)) %>% 
-#   dplyr::select(1:4, 15)
-# wx2015 <- read_csv(here("data", "covariates", "buoy_46025_2015_wx.csv"), na = c("999")) %>%
-#   slice(-c(1)) %>% 
-#   dplyr::select(1:4, 15)
-# wx2016 <- read_csv(here("data", "covariates", "buoy_46025_2016_wx.csv"), na = c("999")) %>%
-#   slice(-c(1)) %>% 
-#   dplyr::select(1:4, 15)
-# wx2017 <- read_csv(here("data", "covariates", "buoy_46025_2017_wx.csv"), na = c("999")) %>%
-#   slice(-c(1)) %>% 
-#   dplyr::select(1:4, 15)
-# 
-# ## bind to create one wx file
-# SSTraw <- rbind(wx2009, wx2010, wx2011, wx2012, wx2013, wx2014, wx2015, wx2016, wx2017) %>%
-#   rename(Year = "#YY")
-# 
-# ## check for data duplicates
-# ## include minute column?
-# 
-# ## check NAs per year 
-# table(SSTraw$WTMP, useNA = "always") # 983 NAs
-# sst_NAs <- SSTraw %>%
-#   group_by(Year) %>%
-#   summarise(TotalNAs = sum(is.na(WTMP))) # lots of NAs in 2012
-# 
-# ## check dataframes links, sampling frequency changes
-# 
-# ## where are the NAs in 2012?
-# # plot(wx2012$MM, wx2012$WTMP) # data missing in spring/summer
-# 
-# ## create mean annual sst
-# SST_full <- SSTraw %>%
-#   mutate(WTMP = as.numeric(WTMP)) %>%
-#   group_by(Year) %>%
-#   summarise(SST = mean(WTMP, na.rm = TRUE)) %>%
-#   filter(Year >= 2009 & Year <= 2017) %>%
-#   arrange(Year) %>%
-#   as_tibble()
-# 
-# ## create mean sst for Jan-May
-# SST <- SSTraw %>%
-#   mutate(WTMP = as.numeric(WTMP),
-#          MM = as.numeric(MM)) %>%
-#   filter(MM == 1:6) %>%
-#   group_by(Year) %>%
-#   summarise(SST = mean(WTMP, na.rm = TRUE)) %>%
-#   filter(Year >= 2009 & Year <= 2017) %>%
-#   arrange(Year) %>%
-#   as_tibble()
 ```
 
 ## Forage fish 
@@ -156,28 +56,10 @@ Data from NOAA IEA
 https://www.integratedecosystemassessment.noaa.gov/regions/california-current/cc-indicator-ecological-integrity  
 https://swfsc.noaa.gov/textblock.aspx?Division=FED&ParentMenuId=54&id=20615  
 
-### Adult anchovy - CCC (1990-2018)
-Institution: NOAA SWFSC\
-Dataset summary: Dr. John Field (NOAA; john.field@noaa.gov), from Rockfish Recruitment and Ecosystem Assessment Survey; Samples represent catch (individuals) per standard 15 minute trawl (CPUE). Data are log(CPUE+1) transformed. Geometric means calculated on non-zero data.\ 
-```{r anchovya}
-ANCHAraw <- read_csv(here("data", "covariates", "cciea_EI_FBC_09ec_5398_9325.csv"))
-
-ANCHA <- ANCHAraw %>%
-  slice(-1) %>%
-  mutate(time = ymd_hms(time)) %>%
-  mutate(Year = year(time)) %>%
-  mutate(ANCHA = as.numeric(mean_cpue)) %>%
-  dplyr::select(Year, ANCHA) %>%
-  filter(Year >= 2009 & Year <= 2017) %>%
-  arrange(Year) %>%
-  as_tibble()
-```
-
 ### Larval anchovy - SCC 
 Dr. Andrew Thompson (NOAA; andrew.thompson@noaa.gov); derived from spring CalCOFI surveys. Larval fish data summed across all stations of the CalCOFI survey in spring (units are in number under 10 sq. m of surface area; ln(abundance+1)).
 CalCOFI lines 76.7 - 93.3; stations 28.0 - 120/0  
 
-For ANCHL, there is only a yearling sampling rate. There was no support for lagged data.  
 ```{r anchovyl}
 ANCHLraw  <- read.csv(here("data", "covariates", "cciea_EI_FBS_2020_a29e_1fd0_409d.csv"), na.strings = "NaN")
 
@@ -192,25 +74,38 @@ ANCHL <- ANCHLraw %>%
   arrange(Year)
 ```
 
-### Krill - CCC (1990-2019)
-Institution: NOAA SWFSC
-More information:
-Dataset summary: Dr. John Field (NOAA; john.field@noaa.gov) from the SWFSC Rockfish Recruitment and Ecosystem Assessment Survey (https://swfsc.noaa.gov/textblock.aspx?Division=FED&ParentMenuId=54&id=20615). Samples represent catch (individuals) per standard 15 minute trawl (CPUE). Data are log(CPUE+1) transformed; Geometric means calculated on non-zero data.
-```{r krill}
-KRILLraw <- read_csv(here("data", "covariates", "cciea_EI_FBC_3c3a_8819_d95c.csv"))
+## Regional oceanographic indices
 
-KRILL <- KRILLraw %>%
+### Biologically Effective Upwelling Transport Index (39N)
+Summary: BEUTI is a new upwelling index that leverages state-of-the-art ocean models as well as satellite and in situ data to improve upon historically available upwelling indices for the U.S. west coast. BEUTI provides estimates of vertical nitrate flux near the coast (i.e., the amount of nitrate upwelled/downwelled), which may be more relevant than upwelling strength when considering some biological responses. See Jacox, M. G., C. A. Edwards, E. L. Hazen, and S. J. Bograd (2018) Coastal upwelling revisited: Ekman, Bakun, and improved upwelling indices for the U.S. west coast. Journal of Geophysical Research, doi:10.1029/2018JC014187.
+
+Institution: NOAA/SWFSC/ERD
+Time span: 1988-01-01T00:00:00Z - 2020-04-01T00:00:00Z
+
+```{r BEUTI}
+BEUTIraw <- read_csv(here("data", "covariates", "cciea_OC_BEUTI_784c_ef9f_af6f.csv"))
+
+## Scenario 4: "full_lag" dataset from July in time t-2 to June in time t-1
+BEUTI <- BEUTIraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
-  mutate(Year = year(time)) %>%
-  mutate(KRILL = as.numeric(mean_cpue)) %>%
-  dplyr::select(Year, KRILL) %>%
+  mutate(Year = year(time),
+         Month = month(time)) %>%
+  mutate(beuti = as.numeric(beuti),
+         split_year = ifelse(Month == 7 | Month == 8 | Month == 9 | Month == 10 | Month == 11 | Month == 12,
+                             Year + 1, Year)) %>%
+  rename(Year = split_year, true_year = Year) %>%
+  mutate(Year = Year + 1) %>%
+  group_by(Year) %>%
+  summarise(BEUTI = mean(beuti, na.rm = TRUE)) %>%
+  dplyr::select(Year, BEUTI) %>%
   filter(Year >= 2009 & Year <= 2017) %>%
+  mutate(BEUTI = scale(BEUTI)) %>%
   arrange(Year) %>%
-  as_tibble()
+  dplyr::select(Year, BEUTI)
 ```
 
-## Large-scale Oceanographic Indicators
+## Large-scale oceanographic indices
 
 ### Pacific Decadal Oscillation Index
 Summary: UW/JISAO (http://research.jisao.washington.edu/pdo/PDO.latest.txt) The PDO is calculated from an Empirical Orthogonal analysis of sea surface temperature anomalies in the North Pacific. The PDO is the first dominant mode.\
@@ -236,50 +131,6 @@ PDO <- PDOraw %>%
   mutate(PDO = scale(PDO)) %>%
   arrange(Year) %>%
   dplyr::select(Year, PDO)
-
-## Averaged PDO by year across 12 months with a one year lag and scaled
-# PDO <- PDOraw %>%
-#   slice(-1) %>%
-#   mutate(time = ymd_hms(time)) %>%
-#   mutate(Year = year(time),
-#          Month = month(time)) %>%
-#   mutate(pdo = as.numeric(PDO)) %>%
-#   group_by(Year) %>%
-#   summarise(PDO = mean(pdo, na.rm = TRUE)) %>%
-#   dplyr::select(Year, PDO) %>%
-#   filter(Year >= 2008 & Year <= 2016) %>%
-#   mutate(PDO = scale(PDO),
-#          TrueYear = Year,
-#          Year = TrueYear + 1) %>%
-#   arrange(Year) %>%
-#   dplyr::select(Year, PDO)
-
-# PDO_full <- PDOraw %>%
-#   slice(-1) %>%
-#   mutate(time = ymd_hms(time)) %>%
-#   mutate(Year = year(time)) %>%
-#   mutate(pdo = as.numeric(PDO)) %>%
-#   group_by(Year) %>%
-#   summarise(PDO = mean(pdo, na.rm = TRUE)) %>%
-#   dplyr::select(Year, PDO) %>%
-#   filter(Year >= 2009 & Year <= 2017) %>%
-#   arrange(Year) %>%
-#   as_tibble()
-# 
-# ## for January-June only
-# PDO <- PDOraw %>%
-#   slice(-1) %>%
-#   mutate(time = ymd_hms(time)) %>%
-#   mutate(Year = year(time),
-#          Month = month(time)) %>%
-#   mutate(pdo = as.numeric(PDO)) %>%
-#   filter(Month == 1 | Month == 2 | Month == 3 |Month == 4 | Month == 5 | Month == 6) %>%
-#   group_by(Year) %>%
-#   summarise(PDO = mean(pdo, na.rm = TRUE)) %>%
-#   dplyr::select(Year, PDO) %>%
-#   filter(Year >= 2009 & Year <= 2017) %>%
-#   arrange(Year) %>%
-#   as_tibble()
 ```
 
 ### Oceanic Nino Index
@@ -306,35 +157,6 @@ ONI <- ONIraw %>%
   mutate(ONI = scale(ONI)) %>%
   arrange(Year) %>%
   dplyr::select(Year, ONI)
-
-## Averaged ONI by year across 12 months and scaled (no lag)
-# ONI <- ONIraw %>%
-#   slice(-1) %>%
-#   mutate(time = ymd_hms(time)) %>%
-#   mutate(Year = year(time)) %>%
-#   mutate(oni = as.numeric(ONI)) %>%
-#   group_by(Year) %>%
-#   summarise(ONI = mean(oni, na.rm = TRUE)) %>%
-#   dplyr::select(Year, ONI) %>%
-#   filter(Year >= 2009 & Year <= 2017) %>%
-#   mutate(ONI = scale(ONI)) %>%
-#   arrange(Year) %>%
-#   dplyr::select(Year, ONI)
-
-# ## for January-June only
-# ONI <- ONIraw %>%
-#   slice(-1) %>%
-#   mutate(time = ymd_hms(time)) %>%
-#   mutate(Year = year(time),
-#          Month = month(time)) %>%
-#   mutate(oni = as.numeric(ONI)) %>%
-#   filter(Month == 1 | Month == 2 | Month == 3 |Month == 4 | Month == 5 | Month == 6) %>%
-#   group_by(Year) %>%
-#   summarise(ONI = mean(oni, na.rm = TRUE)) %>%
-#   dplyr::select(Year, ONI) %>%
-#   filter(Year >= 2009 & Year <= 2017) %>%
-#   arrange(Year) %>%
-#   as_tibble()
 ```
 
 ### North Pacific Gyre Oscillation Index
@@ -362,180 +184,11 @@ NPGO <- NPGOraw %>%
   mutate(NPGO = scale(NPGO)) %>%
   arrange(Year) %>%
   dplyr::select(Year, NPGO)
-
-## Average NPGO by year over 12 months and scaled (no lag)
-# NPGO <- NPGOraw %>%
-#   slice(-1) %>%
-#   mutate(time = ymd_hms(time)) %>%
-#   mutate(Year = year(time)) %>%
-#   mutate(npgo = as.numeric(NPGO)) %>%
-#   group_by(Year) %>%
-#   summarise(NPGO = mean(npgo, na.rm = TRUE)) %>%
-#   dplyr::select(Year, NPGO) %>%
-#   filter(Year >= 2009 & Year <= 2017) %>%
-#   mutate(NPGO = scale(NPGO)) %>%
-#   arrange(Year) %>%
-#   dplyr::select(Year, NPGO)
-
-# NPGO_full <- NPGOraw %>%
-#   slice(-1) %>%
-#   mutate(time = ymd_hms(time)) %>%
-#   mutate(Year = year(time)) %>%
-#   mutate(npgo = as.numeric(NPGO)) %>%
-#   group_by(Year) %>%
-#   summarise(NPGO = mean(npgo, na.rm = TRUE)) %>%
-#   dplyr::select(Year, NPGO) %>%
-#   filter(Year >= 2009 & Year <= 2017) %>%
-#   arrange(Year) %>%
-#   as_tibble()
-# 
-# ## for December-March only
-# NPGO <- NPGOraw %>%
-#   slice(-1) %>%
-#   mutate(time = ymd_hms(time)) %>%
-#   mutate(Year = year(time),
-#          Month = month(time)) %>%
-#   mutate(npgo = as.numeric(NPGO)) %>%
-#   filter(Month == 12 | Month == 1 | Month == 2 | Month == 3) %>%
-#   filter(Year >= 2008 & Year <= 2017)%>%
-#   slice(-c(1:3)) %>%
-#   slice(-37) %>%
-#   mutate(Period = c(rep("A", 4), rep("B", 4), rep("C", 4), rep("D", 4), 
-#                      rep("E", 4), rep("F", 4), rep("G", 4), rep("H", 4), rep("I", 4))) %>%
-#   group_by(Period) %>%
-#   summarise(NPGO = mean(npgo, na.rm = TRUE)) %>%
-#   mutate(Year = 2009:2017) %>%
-#   dplyr::select(Year, NPGO) %>%
-#   arrange(Year) %>%
-#   as_tibble()
 ```
 
-### Coastal Upwelling Transport Index (39N)
-Summary: CUTI is a new upwelling index that leverages state-of-the-art ocean models as well as satellite and in situ data to improve upon historically available upwelling indices for the U.S. west coast. CUTI provides estimates of vertical transport near the coast (i.e., upwelling/downwelling). It was developed as a more accurate alternative to the previously available Bakun Index. See Jacox, M. G., C. A. Edwards, E. L. Hazen, and S. J. Bograd (2018) Coastal upwelling revisited: Ekman, Bakun, and improved upwelling indices for the U.S. west coast. Journal of Geophysical Research, doi:10.1029/2018JC014187.\
-Institution: NOAA/SWFSC/ERD\
-Time span: 1988-01-01T00:00:00Z - 2020-04-01T00:00:00Z\
-```{r CUTI}
-CUTIraw <- read_csv(here("data", "covariates", "cciea_OC_CUTI_784c_ef9f_af6f.csv"))
-
-CUTI <- CUTIraw %>%
-  slice(-1) %>%
-  mutate(time = ymd_hms(time)) %>%
-  mutate(Year = year(time)) %>%
-  mutate(cuti = as.numeric(cuti)) %>%
-  group_by(Year) %>%
-  summarise(CUTI = mean(cuti, na.rm = TRUE)) %>%
-  dplyr::select(Year, CUTI) %>%
-  filter(Year >= 2009 & Year <= 2017) %>%
-  arrange(Year) %>%
-  as_tibble()
-```
-
-### Traditional Bakun 
-Calculation at 15 positions along the west coast of North America from https://oceanview.pfeg.noaa.gov/products/upwelling/dnld
-Bakun Index Values from NOAA/NMFS/PFEG for: 33N 119W
-Values are daily average of wind-driven crossshore transports computed from FNMOC six-hourly surface pressure analyses. Indices are in units of cubic meters per second along each 100 meters of coastline.  -9999 indicates missing
-value.  Positive numbers indicate offshore transport.  Day is based on PST.
-The Bakun Index uses sea level pressure fields from an atmospheric reanalysis to derive estimated near-surface winds, while CUTI and BEUTI use winds directly from atmospheric reanalyses that assimilate satellite and in situ wind measurements.
-```{r bakun}
-BAKUNraw <- read_csv(here("data", "covariates", "bakun.csv"), na.strings = "-9999")
-
-BAKUN <- BAKUNraw %>%
-  mutate(Date = mdy(Date)) %>%
-  mutate(Year = year(Date)) %>%
-  mutate(Index = as.numeric(Index)) %>%
-  group_by(Year) %>%
-  summarise(BAKUN = mean(Index, na.rm = TRUE)) %>%
-  dplyr::select(Year, BAKUN) %>%
-  filter(Year >= 2009 & Year <= 2017) %>%
-  arrange(Year) %>%
-  as_tibble()
-```
-
-### Biologically Effective Upwelling Transport Index (39N)
-Summary: BEUTI is a new upwelling index that leverages state-of-the-art ocean models as well as satellite and in situ data to improve upon historically available upwelling indices for the U.S. west coast. BEUTI provides estimates of vertical nitrate flux near the coast (i.e., the amount of nitrate upwelled/downwelled), which may be more relevant than upwelling strength when considering some biological responses. See Jacox, M. G., C. A. Edwards, E. L. Hazen, and S. J. Bograd (2018) Coastal upwelling revisited: Ekman, Bakun, and improved upwelling indices for the U.S. west coast. Journal of Geophysical Research, doi:10.1029/2018JC014187.
-
-Institution: NOAA/SWFSC/ERD
-Time span: 1988-01-01T00:00:00Z - 2020-04-01T00:00:00Z
-
-Note: Check Latitude (39)
-
-```{r BEUTI}
-BEUTIraw <- read_csv(here("data", "covariates", "cciea_OC_BEUTI_784c_ef9f_af6f.csv"))
-
-## Scenario 4: "full_lag" dataset from July in time t-2 to June in time t-1
-BEUTI <- BEUTIraw %>%
-  slice(-1) %>%
-  mutate(time = ymd_hms(time)) %>%
-  mutate(Year = year(time),
-         Month = month(time)) %>%
-  mutate(beuti = as.numeric(beuti),
-         split_year = ifelse(Month == 7 | Month == 8 | Month == 9 | Month == 10 | Month == 11 | Month == 12,
-                             Year + 1, Year)) %>%
-  rename(Year = split_year, true_year = Year) %>%
-  mutate(Year = Year + 1) %>%
-  group_by(Year) %>%
-  summarise(BEUTI = mean(beuti, na.rm = TRUE)) %>%
-  dplyr::select(Year, BEUTI) %>%
-  filter(Year >= 2009 & Year <= 2017) %>%
-  mutate(BEUTI = scale(BEUTI)) %>%
-  arrange(Year) %>%
-  dplyr::select(Year, BEUTI)
-
-## Averaged by year across 12 months with a one year lag and scaled
-# BEUTI <- BEUTIraw %>%
-#   slice(-1) %>%
-#   mutate(time = ymd_hms(time)) %>%
-#   mutate(Year = year(time)) %>%
-#   mutate(beuti = as.numeric(beuti)) %>%
-#   group_by(Year) %>%
-#   summarise(BEUTI = mean(beuti, na.rm = TRUE)) %>%
-#   dplyr::select(Year, BEUTI) %>%
-#   filter(Year >= 2008 & Year <= 2016) %>%
-#   mutate(BEUTI = scale(BEUTI),
-#          TrueYear = Year,
-#          Year = TrueYear + 1) %>%
-#   arrange(Year) %>%
-#   dplyr::select(Year, BEUTI)
-
-# BEUTI_full <- BEUTIraw %>%
-#   slice(-1) %>%
-#   mutate(time = ymd_hms(time)) %>%
-#   mutate(Year = year(time)) %>%
-#   mutate(beuti = as.numeric(beuti)) %>%
-#   group_by(Year) %>%
-#   summarise(BEUTI = mean(beuti, na.rm = TRUE)) %>%
-#   dplyr::select(Year, BEUTI) %>%
-#   filter(Year >= 2009 & Year <= 2017) %>%
-#   arrange(Year) %>%
-#   as_tibble()
-# 
-# ## for January-June only
-# BEUTI <- BEUTIraw %>%
-#   slice(-1) %>%
-#   mutate(time = ymd_hms(time)) %>%
-#   mutate(Year = year(time),
-#          Month = month(time)) %>%
-#   mutate(beuti = as.numeric(beuti)) %>%
-#   filter(Month == 1 | Month == 2 | Month == 3 |Month == 4 | Month == 5 | Month == 6) %>%
-#   group_by(Year) %>%
-#   summarise(BEUTI = mean(beuti, na.rm = TRUE)) %>%
-#   dplyr::select(Year, BEUTI) %>%
-#   filter(Year >= 2009 & Year <= 2017) %>%
-#   arrange(Year) %>%
-#   as_tibble()
-```
-
-# Final Covariates
-Based on research and discussion, we selected the final candidate covariates for our model: 
-1. Larval anchovy - SCC (ANCHL)
-2. Biologically Effective Upwelling Transport Index (BEUTI)
-3. Sea Surface Temperature (SST)
-4. North Pacific Gyre Oscillation Index (NPGO)
-5. Pacific Decadal Oscillation Index (PDO)
-6. Oceanic Nino Index (ONI)
 
 # Correlation
-Look at correlation between the environmental covariates. Correlated covariates should not be in the same model together.  
+Check for correlation between the oceanographic indices (absolute value > 0.65). 
 ```{r corr}
 ## bind covars
 covars <- cbind(ANCHL[,2], BEUTI[,2], NPGO[,2], ONI[,2], PDO[,2], SST[,2])
@@ -616,7 +269,7 @@ use_set <- as.matrix(full_set[-ii,]) # 15 models
 (n_mods <- nrow(use_set)) # 15 models out of potential 64
 ```
 
-# Final Covariates Plot
+# Plot
 ```{r plot}
 covarsplot <- covars %>%
   mutate(year = 2009:2017) %>%
@@ -639,7 +292,7 @@ ggplot(data = covarsplot, aes(x = year, y = value, color = covariate)) +
 # ggsave(filename = here("results", "covarsplot.png"), plot = last_plot())
 ```
 
-# Export Out 
+# Export out
 ```{r export}
 finalcovars <- covars %>%
   mutate(Year = 2009:2017) %>%

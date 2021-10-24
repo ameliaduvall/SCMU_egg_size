@@ -1,6 +1,6 @@
 ---
 title: "Single Covariate Model Selection for Scripps's Murrelet Linear Mixed Model"
-author: "Amelia J. DuVall & Marcela Todd"
+author: "Amelia J. DuVall & Marcela Todd Zaragoza"
 date: "5/16/2021"
 output: pdf_document
 ---
@@ -23,11 +23,11 @@ library(sjPlot)
 This is `r paste0("v.", (Sys.Date()))`
 
 # Introduction
-The covariates we selected to test the relationship between Scripps's Murrelet egg size and oceanographic conditions are collected at various temporal and spatial scales. In addition, the effects of some oceanographic conditions may take time to manifest in terms of prey availability for murrelets during the breeding season and other impacts that may affect egg size. Given the differences in spatial and temporal extent of oceanographic variables and their impacts on seabirds, we tested all environmental covariates for the Scripps's Murrelet egg size model (see SCMU_egg_model.Rmd) under four scenarios:
-1. Monthly averages for January to June in year $t$ (6 months) to encompass only pre-breeding and laying season ("half")
-2. Monthly averages for July in year $t-1$ to June in year $t$ (12 months) to encompass the entire post-breeding, pre-breeding, and breeding season ("full")
-3. Monthly averages for January to June in year $t-1$ (6 months) to encompass only pre-breeding and laying season in the previous year ("half_lag")
-4. Monthly averages for July in year $t-2$ to June in year $t-1$ (12 months) to encompass the entire post-breeding, pre-breeding, and breeding season in the previous year ("full_lag")
+The covariates we selected to test the relationship between Scripps's Murrelet egg size and oceanographic conditions are collected at various temporal and spatial scales. In addition, the effects of some oceanographic conditions may take time to manifest in terms of prey availability for murrelets during the breeding season and other impacts that may affect egg size. Given the differences in spatial and temporal extent of oceanographic variables and their impacts on seabirds, we tested all environmental covariates for the Scripps's Murrelet egg size model (see SCMU_model.Rmd) under four scenarios:
+1. Monthly averages for January to June in year $t$ (6 months) to encompass pre-breeding and breeding season ("half").
+2. Monthly averages for July in year $t-1$ to June in year $t$ (12 months) to encompass the entire post-breeding, pre-breeding, and breeding season ("full").
+3. Monthly averages for January to June in year $t-1$ (6 months) to encompass pre-breeding and breeding season in the previous year ("half_lag").
+4. Monthly averages for July in year $t-2$ to June in year $t-1$ (12 months) to encompass the entire post-breeding, pre-breeding, and breeding season in the previous year ("full_lag").
 
 We tested 6 covariates: 
 1. Larval anchovy (ANCHL) - This covariate is only available at a yearly sampling rate. Therefore, we tested this variable under two scenarios: 1) yearly value in time $t$, and 2) yearly value in time $t-1$. 
@@ -46,7 +46,7 @@ egg <- read.csv(here("data", "SCMU_egg_data.csv"))%>%
   select(Year, Observer, Plot, Size, EggOrder)
 ```
 
-# Environmental Covariates
+# Oceanographic Indices
 
 ## ANCHL
 ANCHL sampling data is only available at a yearly sampling interval. 
