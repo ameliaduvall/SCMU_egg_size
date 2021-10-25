@@ -65,10 +65,11 @@ use_set <- as.matrix(full_set[-ii,])
 (n_mods <- nrow(use_set)) 
 
 ## find max number of predictors in a model
-rowSums(use_set) 
+max(rowSums(use_set))
 
 ## covariates in global model
-cov_names[use_set[26,]]
+cov_names[use_set[which.max(rowSums(use_set)),]]
+
 ```
 
 # Likelihood Ratio Tests
