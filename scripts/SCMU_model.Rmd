@@ -65,10 +65,11 @@ use_set <- as.matrix(full_set[-ii,])
 (n_mods <- nrow(use_set)) 
 
 ## find max number of predictors in a model
-rowSums(use_set) 
+max(rowSums(use_set))
 
 ## covariates in global model
-cov_names[use_set[26,]]
+cov_names[use_set[which.max(rowSums(use_set)),]]
+
 ```
 
 # Likelihood Ratio Tests
@@ -212,13 +213,16 @@ colnames(delta_res) <- c("deltaAIC")
 delta_res[,"deltaAIC"] <- mod_res[,"AIC"] - min(mod_res[,"AIC"])
 (delta_res <- round(delta_res, 2)) # round results
 
+# top 5 models
+top6 <- order(delta_res)[1:6]
+
 ## "best" models from our set
-cov_names[use_set[12,]] # Egg order, BEUTI, NPGO
-cov_names[use_set[16,]] # Egg order, NPGO, ONI
-cov_names[use_set[26,]] # Egg order, ANCHL, BEUTI, SST (>2 AIC)
-cov_names[use_set[30,]] # Egg order, PDO, SST (>2 AIC)
-cov_names[use_set[18,]] # Egg order, PDO (>2 AIC)
-cov_names[use_set[24,]] # Egg order, BEUTI, SST (>2 AIC)
+cov_names[use_set[top6[1],]] # Egg order, BEUTI, NPGO
+cov_names[use_set[top6[2],]] # Egg order, NPGO, ONI
+cov_names[use_set[top6[3],]] # Egg order, ANCHL, BEUTI, SST (>2 AIC)
+cov_names[use_set[top6[4],]] # Egg order, PDO, SST (>2 AIC)
+cov_names[use_set[top6[5],]] # Egg order, PDO (>2 AIC)
+cov_names[use_set[top6[6],]] # Egg order, BEUTI, SST (>2 AIC)
 
 ## run top models
 topmod1 <- lmer(Size ~ EggOrder + BEUTI + NPGO + (1 | Plot), data = SCMUdf, REML = TRUE)

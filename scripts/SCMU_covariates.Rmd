@@ -643,7 +643,7 @@ colnames(ONI_AIC) <- c("AIC", "deltaAIC", "model_weights")
 rownames(ONI_AIC) <- c("half", "full", "half_lag", "full_lag")
 print(ONI_AIC)
 ```
-There is equal support for the ONI half_lag (AIC = 10704.14) and full_lag model (AIC = 10705.02).
+There is equal support for the ONI half_lag and full_lag model
 
 # Correlation
 Check for correlation between the oceanographic indices (absolute value > 0.65). 
@@ -673,6 +673,9 @@ cor_vals <- flattenCorrMatrix(cor$r, cor$P) %>% arrange(cor)
 
 ## plot
 corrplot(cor$r)
+
+## print the covariates that should not be included in the same model
+print(cor_vals[abs(cor_vals$cor) > 0.65, ] %>% arrange(row))
 ```
 Positive correlations are displayed in blue and negative correlations in red color. Color intensity and the size of the circle are proportional to the correlation coefficients.  
 
@@ -698,7 +701,7 @@ ggplot(data = covarsplot, aes(x = year, y = value, color = covariate)) +
   scale_color_viridis(discrete = TRUE) + 
   ylim(c(-2.5, 2.5)) +
   theme_minimal() + xlab("Year") + ylab("") +
-  scale_x_discrete(breaks = c(2009, 2013, 2017), limits = c(2009, 2013, 2017)) +
+  scale_x_continuous(breaks = c(2009, 2013, 2017), limits = c(2009, 2017)) +
   theme(legend.position = "none", 
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
@@ -711,6 +714,6 @@ ggplot(data = covarsplot, aes(x = year, y = value, color = covariate)) +
 finalcovars <- covars %>%
   mutate(Year = 2009:2017) %>%
   select(Year, everything())
-#write.csv(x = finalcovars, file = here("data", "covariates", "covars.csv"), row.names = FALSE) 
+write.csv(x = finalcovars, file = here("data", "covariates", "covars.csv"), row.names = FALSE) 
 ```
 
