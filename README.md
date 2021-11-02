@@ -44,6 +44,7 @@ conditions.
 TBD
 
 ## Code
+All R scripts required to run this analysis can be found in the [code](code) folder:
 
 1.  SCMU\_covariates.Rmd: This RMarkdown file contains code to compile
     and clean covariate data and check for correlated predictors, as
@@ -68,3 +69,8 @@ Datasets used in this project are all found in the [data](data) folder:
     oceanographic indices from [NOAA’S California Current Integrated
     Ecosystem Assessment
     Program](https://www.integratedecosystemassessment.noaa.gov/regions/california-current/cc-).
+
+## Results
+The [results](results) folder contains the knitted RMarkdown PDFs from the [code](code) folder:
+1.  SCMU\_covariates.pdf
+2.  SCMU\_model.pdf
