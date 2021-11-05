@@ -106,9 +106,9 @@ These diagnostics are done for the global model.
 global_mod <- lmer(Size ~ EggOrder + ANCHL + BEUTI + SST + (1 | Plot), data = SCMUdf, REML = TRUE)
 ```
 
-## Predicted Values
+## Predicted Egg Size Values
 ```{r d1}
-## extract predicted values and plot
+## extract predicted egg size values and plot
 preds <- predict(global_mod)
 p1 <- ggplot() + 
   geom_histogram(mapping = aes(preds), bins = 15) + # set bins 
