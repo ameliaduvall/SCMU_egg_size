@@ -160,7 +160,7 @@ The half SST model has more support.
 ## Regional indices
 
 ### Larval Anchovy (ANCHL)
-Derived from spring California Cooperative Oceanic Fisheries Investigations (CalCOFI) surveys. Larval fish data summed across all stations of the CalCOFI survey in spring (units are in number under 10 sq. m of surface area; ln(abundance+1); CalCOFI lines 76.7 - 93.3; stations 28.0 - 120.0). Sampling data is only available at a yearly sampling interval. Therefore, we tested this variable under only two scenarios: 1) yearly value in time $t$ (full), and 2) yearly value in time $t-1$ (full_lag). 
+Derived from spring California Cooperative Oceanic Fisheries Investigations (CalCOFI) surveys. Larval fish data summed across all stations of the CalCOFI survey in spring (units are in number under 10 sq. m of surface area; ln(abundance+1); CalCOFI lines 76.7 - 93.3; stations 28.0 - 120.0). Sampling data is only available at a yearly sampling interval. Therefore, we tested this variable under two scenarios: 1) yearly value in time $t$, and 2) yearly value in time $t-1$. 
 ```{r anchl}
 ## load data
 ANCHLraw  <- read.csv(here("data", "covariates", "cciea_EI_FBS_2020_a29e_1fd0_409d.csv"), na.strings = "NaN")
@@ -168,7 +168,7 @@ ANCHLraw  <- read.csv(here("data", "covariates", "cciea_EI_FBS_2020_a29e_1fd0_40
 ## are there NAs in the data?
 sum(is.na(ANCHLraw$relative_abundance))
 
-## create "full" dataset from 2009-2017 for values in year t
+## create dataset from 2009-2017 for values in year t 
 ANCHL_full <- ANCHLraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
@@ -180,7 +180,7 @@ ANCHL_full <- ANCHLraw %>%
   mutate(ANCHL_full = scale(ANCHL)) %>%
   dplyr::select(Year, ANCHL_full)
 
-## create "full_lag" dataset from 2008-2016 for values in year t-1
+## create dataset from 2008-2016 for values in year t-1 
 ANCHL_full_lag <- ANCHLraw %>%
   slice(-1) %>%
   mutate(time = ymd_hms(time)) %>%
@@ -194,7 +194,7 @@ ANCHL_full_lag <- ANCHLraw %>%
          ANCHL_full_lag = scale(ANCHL)) %>%
   dplyr::select(Year, ANCHL_full_lag)
 
-## join full and full_lag datasets
+## join no-lag and lag datasets
 ANCHL1 <- full_join(ANCHL_full, ANCHL_full_lag, by = "Year")
 
 ## join with egg size data
@@ -214,10 +214,10 @@ colnames(ANHCL_AIC) <- c("AIC", "deltaAIC", "model_weights")
 rownames(ANHCL_AIC) <- c("full", "full_lag")
 print(ANHCL_AIC)
 ```
-The ANCHL full model has more support. 
+There is support to use the ANCHL data in year $t$ since the lagged data is delta AIC > 2. 
 
 ### Biologically Effective Upwelling Transport Index (BEUTI)
-Summary: BEUTI is a new upwelling index that leverages state-of-the-art ocean models as well as satellite and in situ data to improve upon historically available upwelling indices for the U.S. west coast. BEUTI provides estimates of vertical nitrate flux near the coast (i.e., the amount of nitrate upwelled/downwelled), which may be more relevant than upwelling strength when considering some biological responses. See Jacox, M. G., C. A. Edwards, E. L. Hazen, and S. J. Bograd (2018) Coastal upwelling revisited: Ekman, Bakun, and improved upwelling indices for the U.S. west coast. Journal of Geophysical Research, doi:10.1029/2018JC014187. We tested this variable under all 4 scenarios.
+Summary: BEUTI is a new upwelling index that leverages state-of-the-art ocean models as well as satellite and in situ data to improve upon historically available upwelling indices for the U.S. west coast. BEUTI provides estimates of vertical nitrate flux near the coast (i.e., the amount of nitrate upwelled/downwelled), which may be more relevant than upwelling strength when considering some biological responses. See Jacox, M. G., C. A. Edwards, E. L. Hazen, and S. J. Bograd (2018) Coastal upwelling revisited: Ekman, Bakun, and improved upwelling indices for the U.S. west coast. Journal of Geophysical Research, doi:10.1029/2018JC014187.
 
 ```{r BEUTI}
 BEUTIraw <- read_csv(here("data", "covariates", "cciea_OC_BEUTI_784c_ef9f_af6f.csv"))
@@ -326,12 +326,12 @@ The BEUTI full_lag model has more support.
 # International indices
 
 ### North Pacific Gyre Oscillation Index (NPGO)
-Summary: The NPGO is calculated from an Empirical Orthogonal Function analysis of sea-surface height in the Northeast Pacific. The NPGO is the second dominant mode. We tested this variable under all 4 scenarios.
+Summary: The NPGO is calculated from an Empirical Orthogonal Function analysis of sea-surface height in the Northeast Pacific. The NPGO is the second dominant mode.
 ```{r NPGO}
-NPGOraw <- read_csv(here("data", "covariates", "cciea_OC_NPGO_712b_5843_9069.csv"))[-1,]
+NPGOraw <- read_csv(here("data", "covariates", "cciea_OC_NPGO_712b_5843_9069.csv"))
 
 ## are there NAs in the data?
-sum(is.na(NPGOraw$NPGO))
+sum(is.na(NPGOraw$NPGO)) # only the first row, which does not contain data
 
 ## Scenario 1: "half" dataset from Jan-June in time t
 NPGO_half <- NPGOraw %>%
@@ -433,12 +433,12 @@ The half NPGO model has the most support.
 
 
 ### Pacific Decadal Oscillation Index (PDO)
-Summary: The PDO is calculated from an Empirical Orthogonal analysis of sea surface temperature anomalies in the North Pacific. The PDO is the first dominant mode. We tested this variable under all 4 scenarios.
+Summary: The PDO is calculated from an Empirical Orthogonal analysis of sea surface temperature anomalies in the North Pacific. The PDO is the first dominant mode. 
 ```{r PDO}
-PDOraw <- read_csv(here("data", "covariates", "cciea_OC_PDO_712b_5843_9069.csv"))[-1,]
+PDOraw <- read_csv(here("data", "covariates", "cciea_OC_PDO_712b_5843_9069.csv"))
 
 ## are there NAs in the data?
-sum(is.na(PDOraw$PDO))
+sum(is.na(PDOraw$PDO)) # only the first row, which does not contain data
 
 ## Scenario 1: "half" dataset from Jan-June in time t
 PDO_half <- PDOraw %>%
@@ -540,12 +540,12 @@ The PDO half_lag has more support.
 
 
 ### Oceanic Nino Index (ONI)
-Summary: The ONI is the 3 month running mean of sea surface temperature anomalies in the Nino 3.4 region. We tested this variable under all 4 scenarios.
+Summary: The ONI is the 3 month running mean of sea surface temperature anomalies in the Nino 3.4 region.
 ```{r ONI1}
-ONIraw <- read_csv(here("data", "covariates", "cciea_OC_ONI_712b_5843_9069.csv"))[-1,]
+ONIraw <- read_csv(here("data", "covariates", "cciea_OC_ONI_712b_5843_9069.csv"))
 
 ## are there NAs in the data?
-sum(is.na(ONIraw$ONI))
+sum(is.na(ONIraw$ONI)) # only the first row, which does not contain data
 
 ## Scenario 1: "half" dataset from Jan-June in time t
 ONI_half <- ONIraw %>%
@@ -646,7 +646,7 @@ print(ONI_AIC)
 There is equal support for the ONI half_lag and full_lag model
 
 # Correlation
-Check for correlation between the oceanographic indices (absolute value of Pearson's correlation coefficient > 0.65). 
+Check for correlation between the oceanographic indices (absolute value > 0.65). 
 ```{r corr}
 ## bind covars
 covars <- cbind(ANCHL_full[,2], BEUTI_full_lag[,2], NPGO_half[,2], ONI_half_lag[,2], PDO_half_lag[,2], SST_half[,2])
@@ -671,7 +671,7 @@ cor <- rcorr(as.matrix(covars))
 ## create a new formatted df
 cor_vals <- flattenCorrMatrix(cor$r, cor$P) %>% arrange(cor)
 
-## plot Pearson's correlation coefficient
+## plot
 corrplot(cor$r)
 
 ## print the covariates that should not be included in the same model
@@ -679,7 +679,7 @@ print(cor_vals[abs(cor_vals$cor) > 0.65, ] %>% arrange(row))
 ```
 Positive correlations are displayed in blue and negative correlations in red color. Color intensity and the size of the circle are proportional to the correlation coefficients.  
 
-We selected a Pearson's correlation coefficient of +/- 0.65 as our cutoff for correlation. The following covariates should not be in the same model:
+We selected +/- 0.65 as our cutoff for correlation. The following covariates should not be in the same model:
 1. ANCHL and NPGO (-0.68)
 2. ANCHL and ONI (0.66)
 3. ANCHL and PDO (0.72)
@@ -689,7 +689,7 @@ We selected a Pearson's correlation coefficient of +/- 0.65 as our cutoff for co
 7. NPGO and SST (-0.85)
 8. ONI and PDO (0.90)
 
-# Plot of each covariate over time
+# Plot
 ```{r plot}
 covarsplot <- covars %>%
   mutate(year = 2009:2017) %>%
