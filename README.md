@@ -41,7 +41,7 @@ conditions.
 
 ## Citation
 
-TBD
+Authors. In review. Title. Journal where you will submit it.
 
 ## Code
 All R scripts required to run this analysis can be found in the [code](code) folder:
