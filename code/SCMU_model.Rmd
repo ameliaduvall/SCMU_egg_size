@@ -88,6 +88,7 @@ bm_plot <- lmer(Size ~ EggOrder + ANCHL + BEUTI + SST + (1 | Plot), data = SCMUd
 
 ## run model with observer random effect only
 bm_obs <- lmer(Size ~ EggOrder + ANCHL + BEUTI + SST + (1 | Observer), data = SCMUdf2, REML = FALSE)
+# Error "(boundary(singular) fit: see ?isSingular" due to very small or zero variance; does not affect model results. 
 
 ## Exact RLRT test
 # m is the reduced model containing only the RE to be tested (the random effect set to zero under the null hypothesis). mA and Mo are the models under the alternative and the null, respectively. 

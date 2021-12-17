@@ -25,7 +25,7 @@ library(corrplot)
 This is `r paste0("v.", (Sys.Date()))`
 
 # Introduction
-This document details steps taken to compile and clean covariate data for a linear mixed model on Scripps's Murrelet (*Synthliboramphus scrippsi*) egg size at Santa Barbara Island within Channel Islands National Park from 2009-2017. Oceanographic indices were pulled from [NOAA'S California Current Integrated Ecosystem Assessment Program (CCIEA)](https://www.integratedecosystemassessment.noaa.gov/regions/california-current/cc-about); data descriptions are provided by CCIEA. Covariates are grouped by spatial scale: local, regional, and international. We also tested for correlation among predictors. Given the differences in spatial and temporal extent of oceanographic variables and their impacts on seabirds, we tested all environmental covariates for the Scripps's Murrelet egg size model (see SCMU_model.Rmd) under four scenarios: \
+This document details steps taken to compile and clean covariate data for a linear mixed model on Scripps's Murrelet (*Synthliboramphus scrippsi*) egg size at Santa Barbara Island within Channel Islands National Park from 2009-2017. Oceanographic indices were pulled from [NOAA'S California Current Integrated Ecosystem Assessment Program (CCIEA)](https://www.integratedecosystemassessment.noaa.gov/regions/california-current/cc-about); data descriptions are provided by CCIEA. Covariates are grouped by spatial scale: local, regional, and large-scale. We also tested for correlation among predictors. Given the differences in spatial and temporal extent of oceanographic variables and their impacts on seabirds, we tested environmental covariates for the Scripps's Murrelet egg size model (see SCMU_model.Rmd) under different scenarios, depending on the availability of the data: \
 1. Monthly averages for January to June in year $t$ (6 months) to encompass pre-breeding and breeding season ("half"). \
 2. Monthly averages for July in year $t-1$ to June in year $t$ (12 months) to encompass the entire post-breeding, pre-breeding, and breeding season ("full"). \
 3. Monthly averages for January to June in year $t-1$ (6 months) to encompass pre-breeding and breeding season in the previous year ("half_lag"). \
@@ -323,7 +323,7 @@ print(BEUTI_AIC)
 ```
 The BEUTI full_lag model has more support. 
 
-# International indices
+# Large-scale indices
 
 ### North Pacific Gyre Oscillation Index (NPGO)
 Summary: The NPGO is calculated from an Empirical Orthogonal Function analysis of sea-surface height in the Northeast Pacific. The NPGO is the second dominant mode. We tested this variable under all 4 scenarios.
