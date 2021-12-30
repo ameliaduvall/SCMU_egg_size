@@ -1,7 +1,7 @@
 ---
-title: "Scripps's Murrelet egg size model"
+title: "Scripps's Murrelet Egg Size Model"
 author: "Amelia J. DuVall & Marcela Todd Zaragoza"
-date: "4/11/2021"
+date: "2021"
 output: pdf_document
 ---
 
@@ -9,7 +9,7 @@ This is `r paste0("v.", (Sys.Date()))`
 
 # Introduction
 This document includes code for likelihood ratio tests to test inclusion of random effects, model selection, and model diagnostics for a linear-mixed model of Scripps's Murrelet *Synthliboramphus scrippsi* egg size as a function of egg order and oceanographic indices at Santa Barbara Island, Channel Islands National Park, USA from 2009-2017.  
-
+\
 ```{r setup, message = FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
@@ -40,7 +40,8 @@ SCMUdf <- left_join(egg, covars, by = "Year") %>% # join by year
 # Global Model
 ```{r mods}
 ## create data frame specifying predictors to include
-predictors <- as.data.frame(matrix(c(FALSE, TRUE), 2, 7)) # 7 potential predictors (includes EggOrder)
+predictors <- as.data.frame(matrix(c(FALSE, TRUE), 2, 7)) 
+# 7 potential predictors (includes EggOrder)
 
 ## add column names
 cov_names <- colnames(predictors) <- colnames(SCMUdf[,5:11])
@@ -74,24 +75,31 @@ cov_names[use_set[which.max(rowSums(use_set)),]]
 
 # Likelihood Ratio Tests
 We used likelihood ratio tests using the [RLRsim](https://cran.r-project.org/web/packages/RLRsim/RLRsim.pdf) package on the global model to test the support for inclusion of two random effects: 
-1. Plot: the monitoring plot from which the egg was obtained and measured (n = 8)
-2. Observer: the person who measured the egg (n = 27)
+
+1) Plot: the monitoring plot from which the egg was obtained and measured (n = 8)  
+2) Observer: the person who measured the egg (n = 27)  
+\
 ```{r lrt}
 ## remove NAs in Observer field (e.g., unknown Observer)
 SCMUdf2 <- SCMUdf[-c(which(is.na(SCMUdf$Observer==TRUE))),]
 
 ## global model with both random effects
-bm_both <- lmer(Size ~ EggOrder + ANCHL + BEUTI + SST + (1 | Observer) + (1 | Plot), data = SCMUdf2, REML = FALSE)
+bm_both <- lmer(Size ~ EggOrder + ANCHL + BEUTI + SST + 
+                  (1 | Observer) + (1 | Plot), data = SCMUdf2, REML = FALSE)
 
 ## run model with plot random effect only
-bm_plot <- lmer(Size ~ EggOrder + ANCHL + BEUTI + SST + (1 | Plot), data = SCMUdf2, REML = FALSE)
+bm_plot <- lmer(Size ~ EggOrder + ANCHL + BEUTI + SST + 
+                  (1 | Plot), data = SCMUdf2, REML = FALSE)
 
 ## run model with observer random effect only
-bm_obs <- lmer(Size ~ EggOrder + ANCHL + BEUTI + SST + (1 | Observer), data = SCMUdf2, REML = FALSE)
+bm_obs <- lmer(Size ~ EggOrder + ANCHL + BEUTI + SST + 
+                 (1 | Observer), data = SCMUdf2, REML = FALSE)
 # Error "(boundary(singular) fit: see ?isSingular" due to very small or zero variance; does not affect model results. 
 
 ## Exact RLRT test
-# m is the reduced model containing only the RE to be tested (the random effect set to zero under the null hypothesis). mA and Mo are the models under the alternative and the null, respectively. 
+# m is the reduced model containing only the RE to be tested with 
+# the random effect set to zero under the null hypothesis. 
+# mA and Mo are the models under the alternative and the null, respectively. 
 
 # observer set to zero under the null hypothesis
 exactRLRT(m = bm_obs, mA = bm_both, m0 = bm_plot, seed = 16)
@@ -102,9 +110,11 @@ exactRLRT(m = bm_plot, mA = bm_both, m0 = bm_obs, seed = 16)
 
 # Model Diagnostics
 These diagnostics are done for the global model. 
+\
 ```{r global}
 ## run global model
-global_mod <- lmer(Size ~ EggOrder + ANCHL + BEUTI + SST + (1 | Plot), data = SCMUdf, REML = TRUE)
+global_mod <- lmer(Size ~ EggOrder + ANCHL + BEUTI + SST + (1 | Plot), 
+                   data = SCMUdf, REML = TRUE)
 ```
 
 ## Predicted Egg Size Values
@@ -168,7 +178,7 @@ p4 <- ggplot(plotRE, aes(sample = unlist(ranef_pl))) +
 p4
 ```
 
-## Fitted Values versus Residuals
+## Fitted Values Versus Residuals
 ```{r d5}
 ## plot residuals versus fitted values
 yh <- fitted(global_mod)
@@ -178,8 +188,9 @@ plot(yh, resids, las = 1, pch = 16,
 abline(h=0, lty = "dashed")
 ```
 
-## Levene's test
+## Levene's Test
 We can formally test the assumption of homogenous variance via the Levene's Test, which compares the absolute values of the residuals among groups. 
+\
 ```{r lev}
 ## split residuals into 2 groups
 g1 <- resids[yh <= median(yh)]
@@ -218,20 +229,26 @@ delta_res[,"deltaAIC"] <- mod_res[,"AIC"] - min(mod_res[,"AIC"])
 top6 <- order(delta_res)[1:6]
 
 ## "best" models from our set
-cov_names[use_set[top6[1],]] # Egg order, BEUTI, NPGO
-cov_names[use_set[top6[2],]] # Egg order, NPGO, ONI
-cov_names[use_set[top6[3],]] # Egg order, ANCHL, BEUTI, SST (>2 AIC)
-cov_names[use_set[top6[4],]] # Egg order, PDO, SST (>2 AIC)
-cov_names[use_set[top6[5],]] # Egg order, PDO (>2 AIC)
-cov_names[use_set[top6[6],]] # Egg order, BEUTI, SST (>2 AIC)
+cov_names[use_set[top6[1],]] # EggOrder, BEUTI, NPGO
+cov_names[use_set[top6[2],]] # EggOrder, NPGO, ONI
+cov_names[use_set[top6[3],]] # EggOrder, ANCHL, BEUTI, SST (>2 AIC)
+cov_names[use_set[top6[4],]] # EggOrder, PDO, SST (>2 AIC)
+cov_names[use_set[top6[5],]] # EggOrder, PDO (>2 AIC)
+cov_names[use_set[top6[6],]] # EggOrder, BEUTI, SST (>2 AIC)
 
 ## run top models
-topmod1 <- lmer(Size ~ EggOrder + BEUTI + NPGO + (1 | Plot), data = SCMUdf, REML = TRUE)
-topmod2 <- lmer(Size ~ EggOrder + NPGO + ONI + (1 | Plot), data = SCMUdf, REML = TRUE)
-topmod3 <- lmer(Size ~ EggOrder + ANCHL + BEUTI + SST + (1 | Plot), data = SCMUdf, REML = TRUE)
-topmod4 <- lmer(Size ~ EggOrder + PDO + SST + (1 | Plot), data = SCMUdf, REML = TRUE)
-topmod5 <- lmer(Size ~ EggOrder + PDO + (1 | Plot), data = SCMUdf, REML = TRUE)
-topmod6 <-lmer(Size ~ EggOrder + BEUTI + SST + (1 | Plot), data = SCMUdf, REML = TRUE)
+topmod1 <- lmer(Size ~ EggOrder + BEUTI + NPGO + (1 | Plot), 
+                data = SCMUdf, REML = TRUE)
+topmod2 <- lmer(Size ~ EggOrder + NPGO + ONI + (1 | Plot), 
+                data = SCMUdf, REML = TRUE)
+topmod3 <- lmer(Size ~ EggOrder + ANCHL + BEUTI + SST + (1 | Plot), 
+                data = SCMUdf, REML = TRUE)
+topmod4 <- lmer(Size ~ EggOrder + PDO + SST + (1 | Plot), 
+                data = SCMUdf, REML = TRUE)
+topmod5 <- lmer(Size ~ EggOrder + PDO + (1 | Plot), 
+                data = SCMUdf, REML = TRUE)
+topmod6 <-lmer(Size ~ EggOrder + BEUTI + SST + (1 | Plot), 
+               data = SCMUdf, REML = TRUE)
 
 ## Model selection table
 AIC.tab <- matrix(NA, nrow = 6, ncol = 3) # 6 rows for 6 top models
@@ -242,7 +259,8 @@ AIC.tab[4,1] <- AIC(topmod4) # AIC for topmod4 in second row, first column
 AIC.tab[5,1] <- AIC(topmod5) # AIC for topmod5 in second row, first column
 AIC.tab[6,1] <- AIC(topmod6) # AIC for topmod6 in second row, first column
 AIC.tab[,2] <- AIC.tab[,1] - min(AIC.tab[,1]) # calculate delta AIC
-AIC.tab[,3] <- exp(-0.5*AIC.tab[,2])/(sum(exp(-0.5*AIC.tab[,2]))) # calculate model weights
+AIC.tab[,3] <- exp(-0.5*AIC.tab[,2])/
+  (sum(exp(-0.5*AIC.tab[,2]))) # calculate model weights
 colnames(AIC.tab) <- c("AIC", "deltaAIC", "model_weights")
 print(AIC.tab)
 ```
@@ -251,28 +269,32 @@ print(AIC.tab)
 
 ## Top Model 1
 ```{r topmod1}
-topmod1 <- lmer(Size ~ EggOrder + BEUTI + NPGO + (1 | Plot), data = SCMUdf, REML = TRUE)
+topmod1 <- lmer(Size ~ EggOrder + BEUTI + NPGO + (1 | Plot), 
+                data = SCMUdf, REML = TRUE)
 summary(topmod1)  
 confint(topmod1)
 ```
 
 ## Top Model 2
 ```{r topmod2}
-topmod2 <- lmer(Size ~ EggOrder + NPGO + ONI + (1 | Plot), data = SCMUdf, REML = TRUE)
+topmod2 <- lmer(Size ~ EggOrder + NPGO + ONI + (1 | Plot), 
+                data = SCMUdf, REML = TRUE)
 summary(topmod2)
 confint(topmod2)
 ```
 
 ## Top Model 3
 ```{r topmod3}
-topmod3 <- lmer(Size ~ EggOrder + ANCHL + BEUTI + SST + (1 | Plot), data = SCMUdf, REML = TRUE)
+topmod3 <- lmer(Size ~ EggOrder + ANCHL + BEUTI + SST + (1 | Plot), 
+                data = SCMUdf, REML = TRUE)
 summary(topmod3)
 confint(topmod3)
 ```
 
 ## Top Model 4
 ```{r topmod4}
-topmod4 <- lmer(Size ~ EggOrder + PDO + SST + (1 | Plot), data = SCMUdf, REML = TRUE)
+topmod4 <- lmer(Size ~ EggOrder + PDO + SST + (1 | Plot), 
+                data = SCMUdf, REML = TRUE)
 summary(topmod4)
 confint(topmod4)
 ```
