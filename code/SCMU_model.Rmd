@@ -8,7 +8,7 @@ output: pdf_document
 This is `r paste0("v.", (Sys.Date()))`
 
 # Introduction
-This document includes code for likelihood ratio tests to test inclusion of random effects, model selection, and model diagnostics for a linear-mixed model of Scripps's Murrelet *Synthliboramphus scrippsi* egg size as a function of egg order and oceanographic indices at Santa Barbara Island, Channel Islands National Park, USA from 2009-2017.  
+This document includes code for likelihood ratio tests to test inclusion of random effects, model selection, and model diagnostics for a linear-mixed model of Scripps's Murrelet *Synthliboramphus scrippsi* egg size as a function of laying sequence and oceanographic indices at Santa Barbara Island, Channel Islands National Park, USA from 2009-2017.  
 \
 ```{r setup, message = FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -27,21 +27,22 @@ library(sjPlot)
 library(forecast)
 
 ## load egg size data and covariate data 
-egg <- read.csv(here("data", "SCMU_egg_data.csv")) 
+egg <- read.csv(here("data", "SCMU_egg_data.csv"), sep = ";") %>%
+  mutate(Year = as.numeric(Year)) # make year an integer
 covars <- read.csv(here("data", "covariates", "covars.csv"))
 
 ## join covariate data with egg size data 
 SCMUdf <- left_join(egg, covars, by = "Year") %>% # join by year
-  filter(TrueOrder == TRUE) %>% # select eggs with order known only
+  filter(TrueOrder == TRUE) %>% # select eggs with laying sequence known only
   filter(Size > 1210) %>% # remove the outliers
-  dplyr::select(Year, Observer, Plot, Size, EggOrder, ANCHL, BEUTI, NPGO, ONI, PDO, SST) 
+  dplyr::select(Year, Observer, Plot, Size, LayingSequence, ANCHL, BEUTI, NPGO, ONI, PDO, SST) 
 ```
 
 # Global Model
 ```{r mods}
 ## create data frame specifying predictors to include
 predictors <- as.data.frame(matrix(c(FALSE, TRUE), 2, 7)) 
-# 7 potential predictors (includes EggOrder)
+# 7 potential predictors (includes LayingSequence)
 
 ## add column names
 cov_names <- colnames(predictors) <- colnames(SCMUdf[,5:11])
@@ -84,15 +85,15 @@ We used likelihood ratio tests using the [RLRsim](https://cran.r-project.org/web
 SCMUdf2 <- SCMUdf[-c(which(is.na(SCMUdf$Observer==TRUE))),]
 
 ## global model with both random effects
-bm_both <- lmer(Size ~ EggOrder + ANCHL + BEUTI + SST + 
+bm_both <- lmer(Size ~ LayingSequence + ANCHL + BEUTI + SST + 
                   (1 | Observer) + (1 | Plot), data = SCMUdf2, REML = FALSE)
 
 ## run model with plot random effect only
-bm_plot <- lmer(Size ~ EggOrder + ANCHL + BEUTI + SST + 
+bm_plot <- lmer(Size ~ LayingSequence + ANCHL + BEUTI + SST + 
                   (1 | Plot), data = SCMUdf2, REML = FALSE)
 
 ## run model with observer random effect only
-bm_obs <- lmer(Size ~ EggOrder + ANCHL + BEUTI + SST + 
+bm_obs <- lmer(Size ~ LayingSequence + ANCHL + BEUTI + SST + 
                  (1 | Observer), data = SCMUdf2, REML = FALSE)
 # Error "(boundary(singular) fit: see ?isSingular" due to very small or zero variance; does not affect model results. 
 
@@ -113,7 +114,7 @@ These diagnostics are done for the global model.
 \
 ```{r global}
 ## run global model
-global_mod <- lmer(Size ~ EggOrder + ANCHL + BEUTI + SST + (1 | Plot), 
+global_mod <- lmer(Size ~ LayingSequence + ANCHL + BEUTI + SST + (1 | Plot), 
                    data = SCMUdf, REML = TRUE)
 ```
 
@@ -229,25 +230,25 @@ delta_res[,"deltaAIC"] <- mod_res[,"AIC"] - min(mod_res[,"AIC"])
 top6 <- order(delta_res)[1:6]
 
 ## "best" models from our set
-cov_names[use_set[top6[1],]] # EggOrder, BEUTI, NPGO
-cov_names[use_set[top6[2],]] # EggOrder, NPGO, ONI
-cov_names[use_set[top6[3],]] # EggOrder, ANCHL, BEUTI, SST (>2 AIC)
-cov_names[use_set[top6[4],]] # EggOrder, PDO, SST (>2 AIC)
-cov_names[use_set[top6[5],]] # EggOrder, PDO (>2 AIC)
-cov_names[use_set[top6[6],]] # EggOrder, BEUTI, SST (>2 AIC)
+cov_names[use_set[top6[1],]] # LayingSequence, BEUTI, NPGO
+cov_names[use_set[top6[2],]] # LayingSequence, NPGO, ONI
+cov_names[use_set[top6[3],]] # LayingSequence, ANCHL, BEUTI, SST (>2 AIC)
+cov_names[use_set[top6[4],]] # LayingSequence, PDO, SST (>2 AIC)
+cov_names[use_set[top6[5],]] # LayingSequence, PDO (>2 AIC)
+cov_names[use_set[top6[6],]] # LayingSequence, BEUTI, SST (>2 AIC)
 
 ## run top models
-topmod1 <- lmer(Size ~ EggOrder + BEUTI + NPGO + (1 | Plot), 
+topmod1 <- lmer(Size ~ LayingSequence + BEUTI + NPGO + (1 | Plot), 
                 data = SCMUdf, REML = TRUE)
-topmod2 <- lmer(Size ~ EggOrder + NPGO + ONI + (1 | Plot), 
+topmod2 <- lmer(Size ~ LayingSequence + NPGO + ONI + (1 | Plot), 
                 data = SCMUdf, REML = TRUE)
-topmod3 <- lmer(Size ~ EggOrder + ANCHL + BEUTI + SST + (1 | Plot), 
+topmod3 <- lmer(Size ~ LayingSequence + ANCHL + BEUTI + SST + (1 | Plot), 
                 data = SCMUdf, REML = TRUE)
-topmod4 <- lmer(Size ~ EggOrder + PDO + SST + (1 | Plot), 
+topmod4 <- lmer(Size ~ LayingSequence + PDO + SST + (1 | Plot), 
                 data = SCMUdf, REML = TRUE)
-topmod5 <- lmer(Size ~ EggOrder + PDO + (1 | Plot), 
+topmod5 <- lmer(Size ~ LayingSequence + PDO + (1 | Plot), 
                 data = SCMUdf, REML = TRUE)
-topmod6 <-lmer(Size ~ EggOrder + BEUTI + SST + (1 | Plot), 
+topmod6 <-lmer(Size ~ LayingSequence + BEUTI + SST + (1 | Plot), 
                data = SCMUdf, REML = TRUE)
 
 ## Model selection table
@@ -269,7 +270,7 @@ print(AIC.tab)
 
 ## Top Model 1
 ```{r topmod1}
-topmod1 <- lmer(Size ~ EggOrder + BEUTI + NPGO + (1 | Plot), 
+topmod1 <- lmer(Size ~ LayingSequence + BEUTI + NPGO + (1 | Plot), 
                 data = SCMUdf, REML = TRUE)
 summary(topmod1)  
 confint(topmod1)
@@ -277,7 +278,7 @@ confint(topmod1)
 
 ## Top Model 2
 ```{r topmod2}
-topmod2 <- lmer(Size ~ EggOrder + NPGO + ONI + (1 | Plot), 
+topmod2 <- lmer(Size ~ LayingSequence + NPGO + ONI + (1 | Plot), 
                 data = SCMUdf, REML = TRUE)
 summary(topmod2)
 confint(topmod2)
@@ -285,7 +286,7 @@ confint(topmod2)
 
 ## Top Model 3
 ```{r topmod3}
-topmod3 <- lmer(Size ~ EggOrder + ANCHL + BEUTI + SST + (1 | Plot), 
+topmod3 <- lmer(Size ~ LayingSequence + ANCHL + BEUTI + SST + (1 | Plot), 
                 data = SCMUdf, REML = TRUE)
 summary(topmod3)
 confint(topmod3)
@@ -293,7 +294,7 @@ confint(topmod3)
 
 ## Top Model 4
 ```{r topmod4}
-topmod4 <- lmer(Size ~ EggOrder + PDO + SST + (1 | Plot), 
+topmod4 <- lmer(Size ~ LayingSequence + PDO + SST + (1 | Plot), 
                 data = SCMUdf, REML = TRUE)
 summary(topmod4)
 confint(topmod4)
