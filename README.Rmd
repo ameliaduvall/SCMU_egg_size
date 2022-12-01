@@ -27,4 +27,9 @@ TODD ZARAGOZA, M.I., DuVALL, A.J., HOWARD, J.A., MAZURKIEWICZ, D.M. & CONVERSE, 
 Datasets used in this project are all found in the [data](data) folder:
 
 1. SCMU_egg_data.csv: Formatted data to run the linear-mixed model. See manuscript for detailed description of data.
-2. The [covariates](covariates) sub folder contains .csv files of oceanographic indices from [NOAA'S California Current Integrated Ecosystem Assessment Program](https://www.integratedecosystemassessment.noaa.gov/regions/california-current/cc-). 
+2. The [covariates](covariates) sub folder contains .csv files of oceanographic indices from [NOAA'S California Current Integrated Ecosystem Assessment Program](https://www.integratedecosystemassessment.noaa.gov/regions/california-current/cc-).   
+  
+## Session Info
+R version 4.2.2 (2022-10-31 ucrt)  
+Platform: x86_64-w64-mingw32/x64 (64-bit)  
+Running under: Windows 10 x64 (build 22000)  

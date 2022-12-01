@@ -1,7 +1,7 @@
 ---
 title: "Covariate Data for Scripps's Murrelet Egg Size Model"
 author: "Amelia J. DuVall & Marcela Todd Zaragoza"
-date: "2021"
+date: ""
 output: pdf_document
 ---
 
@@ -42,9 +42,7 @@ library(sjPlot)
 library(corrplot)
 
 ## load egg size data
-egg <- read.csv(here("data", "SCMU_egg_data.csv"))%>%
-  filter(TrueOrder == TRUE) %>% # select eggs with order known only
-  dplyr::select(Year, Observer, Plot, Size, EggOrder)
+egg <- read.csv(here("data", "SCMU_egg_data.csv"))
 ```
 
 # Oceanographic Indices

@@ -44,11 +44,11 @@ Barbara Island. *Marine Ornithology* XX: XX-XX.
 
 ## Code
 
-1.  SCMU\_covariates.Rmd: This RMarkdown file contains code to compile
+1.  SCMU_covariates.Rmd: This RMarkdown file contains code to compile
     and clean covariate data and check for correlated predictors, as
     well as code to run single-model selection on the temporal forms of
     covariate data. The knitted PDF is also included.
-2.  SCMU\_model.Rmd: This RMarkdown file contains contain code for
+2.  SCMU_model.Rmd: This RMarkdown file contains contain code for
     likelihood ratio tests to test inclusion of random effects, model
     selection, and model diagnostics. The knitted PDF is also included.
 
@@ -56,9 +56,15 @@ Barbara Island. *Marine Ornithology* XX: XX-XX.
 
 Datasets used in this project are all found in the [data](data) folder:
 
-1.  SCMU\_egg\_data.csv: Formatted data to run the linear-mixed model.
-    See manuscript for detailed description of data.
+1.  SCMU_egg_data.csv: Formatted data to run the linear-mixed model. See
+    manuscript for detailed description of data.
 2.  The [covariates](covariates) sub folder contains .csv files of
     oceanographic indices from [NOAA’S California Current Integrated
     Ecosystem Assessment
     Program](https://www.integratedecosystemassessment.noaa.gov/regions/california-current/cc-).
+
+## Session Info
+
+R version 4.2.2 (2022-10-31 ucrt)  
+Platform: x86_64-w64-mingw32/x64 (64-bit)  
+Running under: Windows 10 x64 (build 22000)
